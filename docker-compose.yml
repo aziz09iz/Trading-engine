@@ -9,11 +9,12 @@ services:
     restart: unless-stopped
 
   dashboard:
-    build: .
-    command: streamlit run trading_system/dashboard/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
-    env_file: .env
+    build:
+      context: ./frontend
     depends_on:
       - api
+    ports:
+      - "8501:80"
     restart: unless-stopped
 
   redis:

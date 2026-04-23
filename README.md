@@ -13,7 +13,7 @@ This repository is an implementation scaffold, not financial advice and not a tu
 - `trading_system/execution`: adaptive limit order planning and Hyperliquid execution adapter.
 - `trading_system/backtest`: historical replay broker and metrics.
 - `trading_system/app`: FastAPI control plane.
-- `trading_system/dashboard`: Streamlit dashboard placeholder.
+- `frontend`: React + Tailwind trading dashboard.
 
 ## Quick Start
 
@@ -24,6 +24,16 @@ pip install -e ".[dev]"
 pytest
 uvicorn trading_system.app.main:app --reload
 ```
+
+## Tailwind Dashboard
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Set `VITE_API_URL` if the FastAPI service is not running on `http://localhost:8000`.
 
 ## Docker
 
