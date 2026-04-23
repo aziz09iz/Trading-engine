@@ -1,0 +1,39 @@
+services:
+  api:
+    build: .
+    command: uvicorn trading_system.app.main:app --host 0.0.0.0 --port 8000
+    env_file: .env
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    command: streamlit run trading_system/dashboard/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+    env_file: .env
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trading
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading_password
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./trading_system/storage/migrations:/docker-entrypoint-initdb.d
+
+volumes:
+  redis-data:
+  pg-data:
