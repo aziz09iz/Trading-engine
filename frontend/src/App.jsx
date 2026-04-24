@@ -2,62 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-const fundingRows = [
-  {
-    symbol: "BTC",
-    funding: "0.018%",
-    predicted: "0.031%",
-    oiDelta: "+4.8%",
-    cvd: "+18.4M",
-    alignment: "87",
-    signal: "LONG",
-    strength: 0.88,
-  },
-  {
-    symbol: "ETH",
-    funding: "0.024%",
-    predicted: "0.019%",
-    oiDelta: "-1.2%",
-    cvd: "-6.1M",
-    alignment: "74",
-    signal: "SHORT",
-    strength: 0.76,
-  },
-  {
-    symbol: "SOL",
-    funding: "0.041%",
-    predicted: "0.038%",
-    oiDelta: "-3.6%",
-    cvd: "-12.7M",
-    alignment: "69",
-    signal: "MR SHORT",
-    strength: 0.8,
-  },
-  {
-    symbol: "HYPE",
-    funding: "0.012%",
-    predicted: "0.013%",
-    oiDelta: "+0.5%",
-    cvd: "+1.2M",
-    alignment: "58",
-    signal: "WAIT",
-    strength: 0.46,
-  },
-];
-
-const positions = [
-  { symbol: "BTC", side: "Long", notional: "$18,400", entry: "$101,240", pnl: "+$284", risk: "0.42%" },
-  { symbol: "SOL", side: "Short", notional: "$9,800", entry: "$148.30", pnl: "-$46", risk: "0.31%" },
-];
-
-const orders = [
-  { symbol: "BTC", side: "Buy", type: "Alo limit", price: "$101,080", status: "resting" },
-  { symbol: "ETH", side: "Sell", type: "Alo limit", price: "$3,286", status: "watching" },
-  { symbol: "SOL", side: "Sell", type: "reduce tp1", price: "$145.20", status: "queued" },
-];
-
 function classNames(...items) {
   return items.filter(Boolean).join(" ");
+}
+
+function formatUsd(value) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(
+    Number(value ?? 0),
+  );
+}
+
+function formatPct(value, digits = 2) {
+  return `${(Number(value ?? 0) * 100).toFixed(digits)}%`;
 }
 
 function StatusPill({ status }) {
@@ -123,25 +79,47 @@ function App() {
   const [enginePaused, setEnginePaused] = useState(true);
   const [health, setHealth] = useState("checking");
   const [actionPending, setActionPending] = useState(false);
+  const [overview, setOverview] = useState({
+    metrics: {},
+    signals: [],
+    orders: [],
+    universe: [],
+    last_error: null,
+  });
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_URL}/health`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("bad response"))))
-      .then(() => {
-        if (!cancelled) setHealth("online");
-      })
-      .catch(() => {
+    async function load() {
+      try {
+        const [healthRes, overviewRes] = await Promise.all([
+          fetch(`${API_URL}/health`),
+          fetch(`${API_URL}/dashboard/overview`),
+        ]);
+        if (!healthRes.ok || !overviewRes.ok) {
+          throw new Error("bad response");
+        }
+        const overviewPayload = await overviewRes.json();
+        if (!cancelled) {
+          setHealth("online");
+          setEnginePaused(Boolean(overviewPayload.paused));
+          setOverview(overviewPayload);
+        }
+      } catch {
         if (!cancelled) setHealth("offline");
-      });
+      }
+    }
+
+    load();
+    const intervalId = window.setInterval(load, 15000);
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, []);
 
   const exposure = useMemo(() => {
-    return positions.reduce((sum, row) => sum + Number(row.notional.replace(/[$,]/g, "")), 0);
-  }, []);
+    return Number(overview.metrics.current_exposure_pct ?? 0) * Number(overview.metrics.equity_usd ?? 0);
+  }, [overview.metrics]);
 
   async function toggleEngine() {
     const nextPaused = !enginePaused;
@@ -150,6 +128,10 @@ function App() {
     try {
       await fetch(`${API_URL}/engine/${action}`, { method: "POST" });
       setEnginePaused(nextPaused);
+      const response = await fetch(`${API_URL}/dashboard/overview`);
+      if (response.ok) {
+        setOverview(await response.json());
+      }
     } catch {
       setHealth("offline");
     } finally {
@@ -203,10 +185,25 @@ function App() {
 
       <div className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-12">
         <section className="grid gap-4 lg:col-span-12 lg:grid-cols-4">
-          <Metric label="Equity" value="$100,000" detail="Shadow account baseline" />
-          <Metric label="Exposure" value={`$${exposure.toLocaleString()}`} detail="28.2% of max allocation" tone="warn" />
-          <Metric label="Daily PnL" value="+$238" detail="Drawdown stop at -3.0%" tone="good" />
-          <Metric label="Open Risk" value="0.73%" detail="Across 2 positions" tone="neutral" />
+          <Metric label="Equity" value={formatUsd(overview.metrics.equity_usd)} detail="Engine account baseline" />
+          <Metric
+            label="Exposure"
+            value={formatUsd(exposure)}
+            detail={`${formatPct(overview.metrics.current_exposure_pct)} of max allocation`}
+            tone="warn"
+          />
+          <Metric
+            label="Daily PnL"
+            value={formatUsd(overview.metrics.daily_pnl_usd)}
+            detail="Drawdown stop at -3.0%"
+            tone={Number(overview.metrics.daily_pnl_usd ?? 0) >= 0 ? "good" : "bad"}
+          />
+          <Metric
+            label="Open Risk"
+            value={formatPct(overview.metrics.open_risk_pct)}
+            detail={`Across ${overview.orders.length} queued trades`}
+            tone="neutral"
+          />
         </section>
 
         <section className="rounded-lg border border-white/10 bg-zinc-950/80 shadow-glow lg:col-span-8">
@@ -228,19 +225,19 @@ function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
-                {fundingRows.map((row) => (
+                {overview.signals.map((row) => (
                   <tr className="hover:bg-white/[0.03]" key={row.symbol}>
                     <td className="px-4 py-4 font-semibold">{row.symbol}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{row.funding}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{row.predicted}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{row.oiDelta}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{row.cvd}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{row.alignment}</td>
+                    <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.funding, 3)}</td>
+                    <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.predicted_funding, 3)}</td>
+                    <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.oi_delta)}</td>
+                    <td className="px-4 py-4 font-mono text-stone-300">{formatUsd(row.cvd)}</td>
+                    <td className="px-4 py-4 font-mono text-stone-300">{Math.round((row.alignment ?? 0) * 100)}</td>
                     <td className="px-4 py-4">
-                      <SignalBadge value={row.signal} />
+                      <SignalBadge value={`${row.strategy} ${row.side}`.toUpperCase()} />
                     </td>
                     <td className="px-4 py-4">
-                      <StrengthBar value={row.strength} />
+                      <StrengthBar value={Number(row.strength ?? 0)} />
                     </td>
                   </tr>
                 ))}
@@ -258,8 +255,8 @@ function App() {
             <div className="mt-5 space-y-4">
               {[
                 ["Max exposure", "30%", "w-7/12", "bg-cyan-300"],
-                ["Concurrent positions", "2 / 6", "w-4/12", "bg-emerald-300"],
-                ["Daily drawdown", "0.24% / 3%", "w-1/12", "bg-amber-300"],
+                [`Concurrent positions`, `${overview.orders.length} / 6`, "w-4/12", "bg-emerald-300"],
+                ["Daily drawdown", `${formatPct(Math.abs((overview.metrics.daily_pnl_usd ?? 0) / (overview.metrics.equity_usd ?? 1)))} / 3%`, "w-1/12", "bg-amber-300"],
                 ["Dynamic risk", "0.25% to 0.75%", "w-3/12", "bg-violet-300"],
               ].map(([label, value, width, color]) => (
                 <div key={label}>
@@ -278,7 +275,7 @@ function App() {
           <section className="rounded-lg border border-white/10 bg-zinc-950/80 p-4 shadow-glow">
             <h2 className="font-semibold">Execution Queue</h2>
             <div className="mt-4 space-y-3">
-              {orders.map((order) => (
+              {overview.orders.map((order) => (
                 <div className="rounded-md border border-white/10 bg-stone-950 p-3" key={`${order.symbol}-${order.price}`}>
                   <div className="flex items-center justify-between">
                     <span className="font-semibold">{order.symbol}</span>
@@ -287,7 +284,7 @@ function App() {
                   <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-stone-400">
                     <span>{order.side}</span>
                     <span>{order.type}</span>
-                    <span className="text-right font-mono text-stone-200">{order.price}</span>
+                    <span className="text-right font-mono text-stone-200">{formatUsd(order.price)}</span>
                   </div>
                 </div>
               ))}
@@ -297,40 +294,33 @@ function App() {
 
         <section className="rounded-lg border border-white/10 bg-zinc-950/80 shadow-glow lg:col-span-12">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <h2 className="font-semibold">Open Positions</h2>
-            <span className="text-xs text-stone-500">ATR stops and staged exits active</span>
+            <h2 className="font-semibold">Top 10 Liquid Universe</h2>
+            <span className="text-xs text-stone-500">Live selection for engine analysis</span>
           </div>
           <div className="grid gap-3 p-4 md:grid-cols-2">
-            {positions.map((position) => (
+            {overview.universe.map((position) => (
               <div className="rounded-lg border border-white/10 bg-stone-950 p-4" key={position.symbol}>
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-lg font-semibold">{position.symbol}</p>
-                    <p className="text-sm text-stone-500">{position.side} perpetual</p>
+                    <p className="text-sm text-stone-500">Perpetual candidate</p>
                   </div>
-                  <span
-                    className={classNames(
-                      "rounded-md px-2 py-1 text-xs font-semibold",
-                      position.side === "Long"
-                        ? "bg-emerald-400/10 text-emerald-200"
-                        : "bg-rose-400/10 text-rose-200",
-                    )}
-                  >
-                    {position.pnl}
+                  <span className="rounded-md bg-cyan-400/10 px-2 py-1 text-xs font-semibold text-cyan-200">
+                    {formatPct((position.spread_bps ?? 0) / 10000, 2)} spread
                   </span>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
                   <div>
-                    <p className="text-stone-500">Notional</p>
-                    <p className="mt-1 font-mono">{position.notional}</p>
+                    <p className="text-stone-500">24h volume</p>
+                    <p className="mt-1 font-mono">{formatUsd(position.volume_24h)}</p>
                   </div>
                   <div>
-                    <p className="text-stone-500">Entry</p>
-                    <p className="mt-1 font-mono">{position.entry}</p>
+                    <p className="text-stone-500">Open interest</p>
+                    <p className="mt-1 font-mono">{formatUsd(position.open_interest_usd)}</p>
                   </div>
                   <div>
-                    <p className="text-stone-500">Risk</p>
-                    <p className="mt-1 font-mono">{position.risk}</p>
+                    <p className="text-stone-500">Spread</p>
+                    <p className="mt-1 font-mono">{Number(position.spread_bps ?? 0).toFixed(2)} bps</p>
                   </div>
                 </div>
               </div>

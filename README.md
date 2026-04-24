@@ -42,6 +42,29 @@ Risk is dynamic:
 - mean reversion gets slightly less risk than continuation at the same conviction
 - high spread and portfolio constraints still veto trades
 
+## Live Runtime
+
+The API now maintains a live engine snapshot that:
+
+- fetches Hyperliquid market state from the official `info` endpoint
+- selects the top 10 liquid perpetuals
+- stores rolling open-interest history locally and computes `oi_zscore`
+- ranks trade candidates and produces a live dashboard payload
+
+Available endpoints:
+
+- `GET /dashboard/overview`
+- `POST /engine/refresh`
+- `POST /engine/pause`
+- `POST /engine/resume`
+
+Current note:
+
+- open interest and funding are live from Hyperliquid
+- top-10 universe selection is live from Hyperliquid
+- `oi_zscore` is computed from locally accumulated runtime history
+- CVD and long/short ratio remain derived proxies until the trade stream and external positioning sources are fully wired
+
 ## Quick Start
 
 ```bash

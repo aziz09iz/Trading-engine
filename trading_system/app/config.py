@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     max_total_exposure_pct: float = 0.30
     max_concurrent_positions: int = 6
     daily_drawdown_stop_pct: float = 0.03
+    engine_refresh_seconds: int = 60
+    oi_history_window: int = 168
+    runtime_state_path: str = "runtime/oi_history.json"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
