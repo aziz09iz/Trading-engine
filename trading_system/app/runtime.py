@@ -7,6 +7,7 @@ from time import time
 from trading_system.app.config import settings
 from trading_system.app.user_settings import SettingsStore, UserSettings, UserSettingsUpdate
 from trading_system.data.hyperliquid_info import HyperliquidInfoClient
+from trading_system.execution.live_executor import ExecutionResult, LiveExecutionService
 from trading_system.features.oi_history import OpenInterestHistory
 from trading_system.risk.sizing import AccountState, SizingConfig, position_size_usd, risk_pct_for_signal
 from trading_system.signals.engine import rank_trade_candidates
@@ -39,6 +40,7 @@ class TradingRuntime:
             open_positions=0,
         )
         self.snapshot = EngineSnapshot()
+        self.execution = LiveExecutionService()
         self._task: asyncio.Task | None = None
 
     @property
@@ -82,6 +84,7 @@ class TradingRuntime:
         market_map = {row.symbol: row for row in eligible_markets}
         ranked = rank_trade_candidates(eligible_markets)
         orders = [self._make_order(signal, market_map=market_map) for signal in ranked[:6]]
+        executed_orders = await self._execute_orders([order for order in orders if order], ranked[:6], market_map)
         self.snapshot = EngineSnapshot(
             paused=self.snapshot.paused,
             last_error=None,
@@ -96,7 +99,7 @@ class TradingRuntime:
                 for market in live.universe
             ],
             signals=[self._signal_payload(signal, market_map) for signal in ranked],
-            orders=[order for order in orders if order],
+            orders=executed_orders,
             metrics=self._metrics_payload(ranked, eligible_markets),
         )
         return self.snapshot
@@ -150,8 +153,44 @@ class TradingRuntime:
             "price": market.mid_price,
             "notional_usd": notional,
             "risk_pct": risk_pct_for_signal(signal, config),
+            "shadow_mode": self.user_settings.trading.shadow_mode,
+            "reduce_only": self.user_settings.trading.reduce_only_mode,
             "status": "ready" if not self.snapshot.paused and not self.user_settings.trading.shadow_mode else "shadow",
         }
+
+    async def _execute_orders(
+        self,
+        orders: list[dict[str, object]],
+        ranked_signals: list[TradeSignal],
+        market_map: dict[str, object],
+    ) -> list[dict[str, object]]:
+        signal_map = {signal.symbol: signal for signal in ranked_signals}
+        executed: list[dict[str, object]] = []
+        for order in orders:
+            symbol = str(order["symbol"])
+            signal = signal_map.get(symbol)
+            market = market_map.get(symbol)
+            if signal is None or market is None:
+                continue
+            if self.snapshot.paused:
+                order["status"] = "paused"
+                order["message"] = "engine paused"
+                executed.append(order)
+                continue
+
+            result: ExecutionResult = await self.execution.submit_order(
+                signal=signal,
+                market=market,
+                notional_usd=float(order["notional_usd"]),
+                credentials=self.user_settings.hyperliquid,
+                trading=self.user_settings.trading,
+            )
+            order["status"] = result.status
+            order["message"] = result.message
+            if result.response:
+                order["exchange_response"] = result.response
+            executed.append(order)
+        return executed
 
     def _metrics_payload(self, ranked: list[TradeSignal], markets: list[object]) -> dict[str, object]:
         exposure = sum(order["notional_usd"] for order in [self._make_order(signal, {row.symbol: row for row in markets}) for signal in ranked[:6]] if order)
@@ -167,4 +206,5 @@ class TradingRuntime:
             "daily_drawdown_stop_pct": self.user_settings.trading.daily_drawdown_stop_pct,
             "shadow_mode": self.user_settings.trading.shadow_mode,
             "reduce_only_mode": self.user_settings.trading.reduce_only_mode,
+            "execution_cooldown_seconds": self.user_settings.trading.execution_cooldown_seconds,
         }

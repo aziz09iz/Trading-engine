@@ -92,13 +92,13 @@ class HyperliquidInfoClient:
         history = oi_history.snapshot()
 
         universe_candidates: list[UniverseMetrics] = []
-        symbol_to_context: dict[str, dict[str, object]] = {}
+        symbol_to_context: dict[str, tuple[dict[str, object], dict[str, object]]] = {}
 
         for asset, context in zip(meta, asset_contexts, strict=False):
             symbol = str(asset.get("name") or asset.get("coin") or asset.get("szDecimals") or "")
             if not symbol:
                 continue
-            symbol_to_context[symbol] = context
+            symbol_to_context[symbol] = (asset, context)
             spread_bps = self._spread_bps(context)
             volume_24h = max(_to_float(context.get("dayNtlVlm")), _to_float(context.get("dayBaseVlm")))
             universe_candidates.append(
@@ -117,7 +117,7 @@ class HyperliquidInfoClient:
 
         markets: list[MarketFeatures] = []
         for symbol in top_symbols:
-            context = symbol_to_context[symbol]
+            asset, context = symbol_to_context[symbol]
             historical_oi = history.get(symbol, [])
             open_interest = _to_float(context.get("openInterest"))
             oi_series = historical_oi + [open_interest]
@@ -162,6 +162,7 @@ class HyperliquidInfoClient:
                     ma_fast=ma_fast,
                     ma_slow=ma_slow,
                     timestamp_ms=int(_to_float(context.get("time"), time() * 1000.0)),
+                    size_decimals=int(asset.get("szDecimals", 3)),
                 )
             )
 

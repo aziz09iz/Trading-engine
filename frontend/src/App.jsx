@@ -146,6 +146,7 @@ function App() {
       max_spread_bps: 5,
       top_n_markets: 10,
       refresh_seconds: 60,
+      execution_cooldown_seconds: 300,
       shadow_mode: true,
       reduce_only_mode: false,
       atr_stop_min: 1.2,
@@ -268,6 +269,9 @@ function App() {
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
                 Universe top 10 liquid
               </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
+                {settingsDraft.trading.shadow_mode ? "Execution shadow" : "Execution live"}
+              </span>
             </div>
             <p className="mt-1 text-sm text-stone-400">
               Hyperliquid funding, positioning, order flow, cross-exchange alignment, and dynamic risk.
@@ -374,6 +378,7 @@ function App() {
                 [`Concurrent positions`, `${overview.orders.length} / 6`, "w-4/12", "bg-emerald-300"],
                 ["Daily drawdown", `${formatPct(Math.abs((overview.metrics.daily_pnl_usd ?? 0) / (overview.metrics.equity_usd ?? 1)))} / 3%`, "w-1/12", "bg-amber-300"],
                 ["Dynamic risk", "0.25% to 0.75%", "w-3/12", "bg-violet-300"],
+                ["Cooldown", `${settingsDraft.trading.execution_cooldown_seconds ?? 300}s`, "w-5/12", "bg-sky-300"],
               ].map(([label, value, width, color]) => (
                 <div key={label}>
                   <div className="mb-2 flex justify-between text-sm">
@@ -402,6 +407,7 @@ function App() {
                     <span>{order.type}</span>
                     <span className="text-right font-mono text-stone-200">{formatUsd(order.price)}</span>
                   </div>
+                  <div className="mt-2 text-xs text-stone-500">{order.message ?? "waiting for execution"}</div>
                 </div>
               ))}
             </div>
@@ -508,6 +514,13 @@ function App() {
                   step="1"
                   type="number"
                   value={settingsDraft.trading.refresh_seconds ?? 60}
+                />
+                <Input
+                  label="Execution Cooldown"
+                  onChange={(event) => updateTradingField("execution_cooldown_seconds", Number(event.target.value))}
+                  step="1"
+                  type="number"
+                  value={settingsDraft.trading.execution_cooldown_seconds ?? 300}
                 />
                 <Input
                   label="ATR Stop Min"

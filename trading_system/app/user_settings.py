@@ -22,6 +22,7 @@ class TradingParameters(BaseModel):
     max_spread_bps: float = 5.0
     top_n_markets: int = 10
     refresh_seconds: int = 60
+    execution_cooldown_seconds: int = 300
     shadow_mode: bool = True
     reduce_only_mode: bool = False
     atr_stop_min: float = 1.2

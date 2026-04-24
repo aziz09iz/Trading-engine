@@ -36,6 +36,7 @@ class MarketFeatures:
     ma_fast: float
     ma_slow: float
     timestamp_ms: int
+    size_decimals: int = 3
 
 
 @dataclass(frozen=True)

@@ -74,6 +74,13 @@ Dashboard settings now support:
 - refresh interval
 - shadow mode and reduce-only mode
 
+Live execution notes:
+
+- when `shadow_mode` is enabled, orders are ranked and staged but not sent
+- when `shadow_mode` is disabled and credentials are present, the runtime can submit live limit orders
+- submissions use a per-symbol cooldown to avoid duplicate orders every refresh cycle
+- size and price are rounded conservatively to Hyperliquid lot-size and price-precision rules
+
 Current note:
 
 - open interest and funding are live from Hyperliquid
