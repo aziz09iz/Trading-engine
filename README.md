@@ -106,13 +106,16 @@ npm install
 npm run dev
 ```
 
-Set `VITE_API_URL` if the FastAPI service is not running on `http://localhost:8000`.
+In local development and GitHub Codespaces, the Vite dev server proxies `/api` to `http://127.0.0.1:8000` automatically.
+Set `VITE_API_URL` only if you want to override that behavior.
 
 ## Docker
 
 ```bash
 docker compose up --build
 ```
+
+The compose file now works without a `.env` file. Runtime defaults are used unless you provide settings from the dashboard or container environment.
 
 ## Safety Defaults
 

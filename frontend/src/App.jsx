@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 function classNames(...items) {
   return items.filter(Boolean).join(" ");
@@ -276,6 +276,7 @@ function App() {
             <p className="mt-1 text-sm text-stone-400">
               Hyperliquid funding, positioning, order flow, cross-exchange alignment, and dynamic risk.
             </p>
+            {overview.last_error ? <p className="mt-2 text-sm text-rose-300">Runtime error: {overview.last_error}</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -345,22 +346,30 @@ function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
-                {overview.signals.map((row) => (
-                  <tr className="hover:bg-white/[0.03]" key={row.symbol}>
-                    <td className="px-4 py-4 font-semibold">{row.symbol}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.funding, 3)}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.predicted_funding, 3)}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.oi_delta)}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{formatUsd(row.cvd)}</td>
-                    <td className="px-4 py-4 font-mono text-stone-300">{Math.round((row.alignment ?? 0) * 100)}</td>
-                    <td className="px-4 py-4">
-                      <SignalBadge value={`${row.strategy} ${row.side}`.toUpperCase()} />
-                    </td>
-                    <td className="px-4 py-4">
-                      <StrengthBar value={Number(row.strength ?? 0)} />
+                {overview.signals.length > 0 ? (
+                  overview.signals.map((row) => (
+                    <tr className="hover:bg-white/[0.03]" key={row.symbol}>
+                      <td className="px-4 py-4 font-semibold">{row.symbol}</td>
+                      <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.funding, 3)}</td>
+                      <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.predicted_funding, 3)}</td>
+                      <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.oi_delta)}</td>
+                      <td className="px-4 py-4 font-mono text-stone-300">{formatUsd(row.cvd)}</td>
+                      <td className="px-4 py-4 font-mono text-stone-300">{Math.round((row.alignment ?? 0) * 100)}</td>
+                      <td className="px-4 py-4">
+                        <SignalBadge value={`${row.strategy} ${row.side}`.toUpperCase()} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <StrengthBar value={Number(row.strength ?? 0)} />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="px-4 py-6 text-sm text-stone-500" colSpan={8}>
+                      No qualified trades right now. Engine is still tracking the top liquid Hyperliquid markets.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

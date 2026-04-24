@@ -85,7 +85,10 @@ class HyperliquidInfoClient:
     ) -> LiveSnapshot:
         async with httpx.AsyncClient(timeout=15.0) as client:
             meta_payload = await self._post_info(client, {"type": "metaAndAssetCtxs"})
-            predicted_payload = await self._post_info(client, {"type": "predictedFundings"})
+            try:
+                predicted_payload = await self._post_info(client, {"type": "predictedFundings"})
+            except httpx.HTTPError:
+                predicted_payload = {}
 
         meta, asset_contexts = self._split_meta_payload(meta_payload)
         predicted_rates = _find_predicted_rates(predicted_payload)

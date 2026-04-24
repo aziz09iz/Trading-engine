@@ -37,6 +37,22 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "env": settings.env}
 
 
+@app.get("/")
+async def root() -> dict[str, object]:
+    runtime: TradingRuntime = app.state.runtime
+    return {
+        "service": "Hyperliquid Funding Arbitrage Engine",
+        "status": "ok",
+        "paused": runtime.snapshot.paused,
+        "last_error": runtime.snapshot.last_error,
+        "endpoints": {
+            "health": "/health",
+            "overview": "/dashboard/overview",
+            "settings": "/settings",
+        },
+    }
+
+
 @app.get("/risk")
 async def risk_state() -> dict[str, float | int | bool]:
     runtime: TradingRuntime = app.state.runtime
