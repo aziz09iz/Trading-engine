@@ -15,6 +15,19 @@ This repository is an implementation scaffold, not financial advice and not a tu
 - `trading_system/app`: FastAPI control plane.
 - `frontend`: React + Tailwind trading dashboard.
 
+## Main Features
+
+- live top-10 market selection from Hyperliquid liquidity and volume
+- funding continuation and mean-reversion signal engine
+- dynamic risk sizing based on setup quality
+- shadow mode for paper execution with real market data
+- live order submission to Hyperliquid when shadow mode is disabled
+- reduce-only mode for defensive order handling
+- rolling OI history with `oi_zscore`
+- runtime settings persistence
+- Telegram bot notifications for engine status and trading activity
+- Docker deployment with healthchecks and automatic migration startup
+
 ## Trading Logic
 
 The engine is designed around the top 10 Hyperliquid markets by liquidity and volume, not a fixed manual watchlist.
@@ -64,6 +77,7 @@ Dashboard settings now support:
 
 - Hyperliquid account address
 - Hyperliquid secret key
+- Telegram bot token and chat id
 - API and WebSocket URLs
 - maximum exposure
 - maximum concurrent positions
@@ -72,7 +86,9 @@ Dashboard settings now support:
 - max spread filter
 - top market count
 - refresh interval
+- execution cooldown
 - shadow mode and reduce-only mode
+- Telegram notification toggles
 
 Live execution notes:
 
@@ -80,6 +96,76 @@ Live execution notes:
 - when `shadow_mode` is disabled and credentials are present, the runtime can submit live limit orders
 - submissions use a per-symbol cooldown to avoid duplicate orders every refresh cycle
 - size and price are rounded conservatively to Hyperliquid lot-size and price-precision rules
+
+## Settings Explained
+
+### `shadow_mode`
+
+`shadow_mode` means the engine does the full analysis, creates signals, sizes trades, and prepares orders, but does not actually send any order to Hyperliquid.
+
+Use this when:
+
+- validating signals
+- checking dashboard behavior
+- testing Telegram notifications
+- confirming settings before enabling live trading
+
+### `reduce_only_mode`
+
+`reduce_only_mode` means any live order sent by the engine is marked reduce-only, so it can only reduce or close exposure and cannot increase a position.
+
+Use this when:
+
+- managing exits only
+- running defensive mode after a problem
+- verifying execution plumbing without letting the bot build new exposure
+
+### `max_total_exposure_pct`
+
+Maximum notional exposure the bot is allowed to deploy relative to account equity.
+
+### `max_concurrent_positions`
+
+Caps how many separate markets can be active at once.
+
+### `daily_drawdown_stop_pct`
+
+Stops new risk-taking when the running daily loss breaches the configured threshold.
+
+### `min_risk_pct` and `max_risk_pct`
+
+The engine scales position risk between these bounds depending on conviction and liquidity quality.
+
+### `max_spread_bps`
+
+Markets wider than this spread are excluded from signal generation and execution.
+
+### `execution_cooldown_seconds`
+
+Prevents duplicate live submissions on the same symbol across repeated refresh cycles.
+
+### Telegram notifications
+
+You can configure:
+
+- API status notifications
+- engine actions like pause, resume, and settings updates
+- trade activity like submitted, blocked, or cooldown events
+- PnL and engine summary heartbeat
+- runtime errors
+
+The bot can send:
+
+- API online status
+- migration status
+- mode information such as shadow or live
+- pause/resume/settings update events
+- trade submission results
+- current exposure
+- daily PnL
+- tracked markets and signal count
+- top current signal
+- runtime errors
 
 Current note:
 
@@ -116,6 +202,28 @@ docker compose up --build
 ```
 
 The compose file now works without a `.env` file. Runtime defaults are used unless you provide settings from the dashboard or container environment.
+
+### Production Docker Mode
+
+For Codespaces or VPS deployment:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+```
+
+What this adds:
+
+- healthchecks for API, dashboard, Redis, and Postgres
+- automatic migration run during API startup
+- persistent runtime settings and OI history under `./runtime`
+- production-oriented published port for the dashboard via `APP_PORT`
+- internal-only API/Redis/Postgres in the production override
+
+Codespaces tip:
+
+- forward the dashboard port from the active compose mode
+- if using the base compose, use port `8501`
+- if using production override, use port `80` or your configured `APP_PORT`
 
 ## Safety Defaults
 

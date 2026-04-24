@@ -21,7 +21,7 @@ function Input({ label, value, onChange, type = "text", placeholder = "", step }
     <label className="block">
       <span className="mb-2 block text-xs uppercase text-stone-500">{label}</span>
       <input
-        className="w-full rounded-md border border-white/10 bg-stone-950 px-3 py-2 text-sm text-stone-100 outline-none ring-0 placeholder:text-stone-600 focus:border-cyan-300/40"
+        className="w-full rounded-md border border-white/10 bg-stone-950 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-600 focus:border-cyan-300/40"
         onChange={onChange}
         placeholder={placeholder}
         step={step}
@@ -118,14 +118,20 @@ function App() {
   const [enginePaused, setEnginePaused] = useState(true);
   const [health, setHealth] = useState("checking");
   const [actionPending, setActionPending] = useState(false);
+  const [settingsPending, setSettingsPending] = useState(false);
+  const [telegramTestPending, setTelegramTestPending] = useState(false);
+  const [flashMessage, setFlashMessage] = useState("");
   const [overview, setOverview] = useState({
     metrics: {},
     signals: [],
     orders: [],
     universe: [],
     last_error: null,
+    migration_ok: false,
+    migration_error: null,
     settings: {
       hyperliquid: {},
+      telegram: {},
       trading: {},
     },
   });
@@ -136,6 +142,18 @@ function App() {
       api_url: "https://api.hyperliquid.xyz",
       ws_url: "wss://api.hyperliquid.xyz/ws",
       has_secret_key: false,
+    },
+    telegram: {
+      enabled: false,
+      bot_token: "",
+      chat_id: "",
+      has_bot_token: false,
+      notify_api_status: true,
+      notify_engine_actions: true,
+      notify_trade_activity: true,
+      notify_pnl_summary: true,
+      notify_errors: true,
+      summary_interval_minutes: 60,
     },
     trading: {
       max_total_exposure_pct: 0.3,
@@ -153,10 +171,10 @@ function App() {
       atr_stop_max: 2.0,
     },
   });
-  const [settingsPending, setSettingsPending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+
     async function load() {
       try {
         const [healthRes, overviewRes] = await Promise.all([
@@ -174,12 +192,15 @@ function App() {
           setSettingsDraft(overviewPayload.settings);
         }
       } catch {
-        if (!cancelled) setHealth("offline");
+        if (!cancelled) {
+          setHealth("offline");
+        }
       }
     }
 
     load();
     const intervalId = window.setInterval(load, 15000);
+
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
@@ -189,6 +210,36 @@ function App() {
   const exposure = useMemo(() => {
     return Number(overview.metrics.current_exposure_pct ?? 0) * Number(overview.metrics.equity_usd ?? 0);
   }, [overview.metrics]);
+
+  function updateHyperliquidField(field, value) {
+    setSettingsDraft((current) => ({
+      ...current,
+      hyperliquid: {
+        ...current.hyperliquid,
+        [field]: value,
+      },
+    }));
+  }
+
+  function updateTelegramField(field, value) {
+    setSettingsDraft((current) => ({
+      ...current,
+      telegram: {
+        ...current.telegram,
+        [field]: value,
+      },
+    }));
+  }
+
+  function updateTradingField(field, value) {
+    setSettingsDraft((current) => ({
+      ...current,
+      trading: {
+        ...current.trading,
+        [field]: value,
+      },
+    }));
+  }
 
   async function toggleEngine() {
     const nextPaused = !enginePaused;
@@ -228,31 +279,44 @@ function App() {
       const payload = await overviewResponse.json();
       setOverview(payload);
       setSettingsDraft(payload.settings);
+      setFlashMessage("Settings saved.");
     } catch {
       setHealth("offline");
+      setFlashMessage("Failed to save settings.");
     } finally {
       setSettingsPending(false);
     }
   }
 
-  function updateHyperliquidField(field, value) {
-    setSettingsDraft((current) => ({
-      ...current,
-      hyperliquid: {
-        ...current.hyperliquid,
-        [field]: value,
-      },
-    }));
-  }
-
-  function updateTradingField(field, value) {
-    setSettingsDraft((current) => ({
-      ...current,
-      trading: {
-        ...current.trading,
-        [field]: value,
-      },
-    }));
+  async function sendTelegramTest() {
+    setTelegramTestPending(true);
+    try {
+      const saveResponse = await fetch(`${API_URL}/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settingsDraft),
+      });
+      if (!saveResponse.ok) {
+        throw new Error("settings update failed");
+      }
+      const response = await fetch(`${API_URL}/settings/telegram/test`, { method: "POST" });
+      if (!response.ok) {
+        throw new Error("telegram test failed");
+      }
+      const payload = await response.json();
+      const overviewResponse = await fetch(`${API_URL}/dashboard/overview`);
+      if (overviewResponse.ok) {
+        const overviewPayload = await overviewResponse.json();
+        setOverview(overviewPayload);
+        setSettingsDraft(overviewPayload.settings);
+      }
+      setFlashMessage(payload.sent ? "Telegram test sent." : "Telegram test not sent. Check bot settings.");
+    } catch {
+      setHealth("offline");
+      setFlashMessage("Telegram test failed.");
+    } finally {
+      setTelegramTestPending(false);
+    }
   }
 
   return (
@@ -272,11 +336,16 @@ function App() {
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
                 {settingsDraft.trading.shadow_mode ? "Execution shadow" : "Execution live"}
               </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
+                Migration {overview.migration_ok ? "ok" : "pending"}
+              </span>
             </div>
             <p className="mt-1 text-sm text-stone-400">
-              Hyperliquid funding, positioning, order flow, cross-exchange alignment, and dynamic risk.
+              Hyperliquid funding, positioning, order flow, cross-exchange alignment, dynamic risk, and Telegram alerts.
             </p>
             {overview.last_error ? <p className="mt-2 text-sm text-rose-300">Runtime error: {overview.last_error}</p> : null}
+            {overview.migration_error ? <p className="mt-1 text-sm text-amber-300">Migration warning: {overview.migration_error}</p> : null}
+            {flashMessage ? <p className="mt-1 text-sm text-cyan-200">{flashMessage}</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -316,7 +385,7 @@ function App() {
           <Metric
             label="Daily PnL"
             value={formatUsd(overview.metrics.daily_pnl_usd)}
-            detail="Drawdown stop at -3.0%"
+            detail="Drawdown stop at configured threshold"
             tone={Number(overview.metrics.daily_pnl_usd ?? 0) >= 0 ? "good" : "bad"}
           />
           <Metric
@@ -383,10 +452,15 @@ function App() {
             </div>
             <div className="mt-5 space-y-4">
               {[
-                ["Max exposure", "30%", "w-7/12", "bg-cyan-300"],
-                [`Concurrent positions`, `${overview.orders.length} / 6`, "w-4/12", "bg-emerald-300"],
-                ["Daily drawdown", `${formatPct(Math.abs((overview.metrics.daily_pnl_usd ?? 0) / (overview.metrics.equity_usd ?? 1)))} / 3%`, "w-1/12", "bg-amber-300"],
-                ["Dynamic risk", "0.25% to 0.75%", "w-3/12", "bg-violet-300"],
+                ["Max exposure", formatPct(overview.metrics.max_exposure_pct), "w-7/12", "bg-cyan-300"],
+                [`Concurrent positions`, `${overview.orders.length} / ${overview.metrics.max_concurrent_positions ?? 6}`, "w-4/12", "bg-emerald-300"],
+                [
+                  "Daily drawdown",
+                  `${formatPct(Math.abs((overview.metrics.daily_pnl_usd ?? 0) / (overview.metrics.equity_usd ?? 1)))} / ${formatPct(overview.metrics.daily_drawdown_stop_pct)}`,
+                  "w-1/12",
+                  "bg-amber-300",
+                ],
+                ["Dynamic risk", `${formatPct(settingsDraft.trading.min_risk_pct)} to ${formatPct(settingsDraft.trading.max_risk_pct)}`, "w-3/12", "bg-violet-300"],
                 ["Cooldown", `${settingsDraft.trading.execution_cooldown_seconds ?? 300}s`, "w-5/12", "bg-sky-300"],
               ].map(([label, value, width, color]) => (
                 <div key={label}>
@@ -426,19 +500,33 @@ function App() {
         <section className="rounded-lg border border-white/10 bg-zinc-950/80 shadow-glow lg:col-span-12">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <h2 className="font-semibold">Settings</h2>
-            <button
-              className={classNames(
-                "rounded-md px-4 py-2 text-sm font-semibold",
-                settingsPending ? "bg-stone-700 text-stone-300" : "bg-cyan-300 text-stone-950 hover:bg-cyan-200",
-              )}
-              disabled={settingsPending}
-              onClick={saveSettings}
-              type="button"
-            >
-              {settingsPending ? "Saving" : "Save Settings"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className={classNames(
+                  "rounded-md px-4 py-2 text-sm font-semibold",
+                  telegramTestPending ? "bg-stone-700 text-stone-300" : "bg-emerald-300 text-stone-950 hover:bg-emerald-200",
+                )}
+                disabled={telegramTestPending}
+                onClick={sendTelegramTest}
+                type="button"
+              >
+                {telegramTestPending ? "Sending" : "Send Telegram Test"}
+              </button>
+              <button
+                className={classNames(
+                  "rounded-md px-4 py-2 text-sm font-semibold",
+                  settingsPending ? "bg-stone-700 text-stone-300" : "bg-cyan-300 text-stone-950 hover:bg-cyan-200",
+                )}
+                disabled={settingsPending}
+                onClick={saveSettings}
+                type="button"
+              >
+                {settingsPending ? "Saving" : "Save Settings"}
+              </button>
+            </div>
           </div>
-          <div className="grid gap-5 p-4 lg:grid-cols-2">
+
+          <div className="grid gap-5 p-4 lg:grid-cols-3">
             <div className="space-y-4">
               <h3 className="text-sm font-semibold uppercase text-stone-400">Hyperliquid</h3>
               <Input
@@ -556,6 +644,61 @@ function App() {
                   checked={Boolean(settingsDraft.trading.reduce_only_mode)}
                   label="Reduce Only Mode"
                   onChange={() => updateTradingField("reduce_only_mode", !settingsDraft.trading.reduce_only_mode)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold uppercase text-stone-400">Telegram Bot</h3>
+              <Toggle
+                checked={Boolean(settingsDraft.telegram.enabled)}
+                label="Enable Telegram Notifications"
+                onChange={() => updateTelegramField("enabled", !settingsDraft.telegram.enabled)}
+              />
+              <Input
+                label="Bot Token"
+                onChange={(event) => updateTelegramField("bot_token", event.target.value)}
+                placeholder={settingsDraft.telegram.has_bot_token ? "Stored token retained if left blank" : "123456:ABC..."}
+                value={settingsDraft.telegram.bot_token ?? ""}
+              />
+              <Input
+                label="Chat ID"
+                onChange={(event) => updateTelegramField("chat_id", event.target.value)}
+                placeholder="123456789"
+                value={settingsDraft.telegram.chat_id ?? ""}
+              />
+              <Input
+                label="Summary Interval Minutes"
+                onChange={(event) => updateTelegramField("summary_interval_minutes", Number(event.target.value))}
+                step="1"
+                type="number"
+                value={settingsDraft.telegram.summary_interval_minutes ?? 60}
+              />
+              <div className="grid gap-3">
+                <Toggle
+                  checked={Boolean(settingsDraft.telegram.notify_api_status)}
+                  label="Notify API Status"
+                  onChange={() => updateTelegramField("notify_api_status", !settingsDraft.telegram.notify_api_status)}
+                />
+                <Toggle
+                  checked={Boolean(settingsDraft.telegram.notify_engine_actions)}
+                  label="Notify Engine Actions"
+                  onChange={() => updateTelegramField("notify_engine_actions", !settingsDraft.telegram.notify_engine_actions)}
+                />
+                <Toggle
+                  checked={Boolean(settingsDraft.telegram.notify_trade_activity)}
+                  label="Notify Trading Activity"
+                  onChange={() => updateTelegramField("notify_trade_activity", !settingsDraft.telegram.notify_trade_activity)}
+                />
+                <Toggle
+                  checked={Boolean(settingsDraft.telegram.notify_pnl_summary)}
+                  label="Notify PnL Summary"
+                  onChange={() => updateTelegramField("notify_pnl_summary", !settingsDraft.telegram.notify_pnl_summary)}
+                />
+                <Toggle
+                  checked={Boolean(settingsDraft.telegram.notify_errors)}
+                  label="Notify Errors"
+                  onChange={() => updateTelegramField("notify_errors", !settingsDraft.telegram.notify_errors)}
                 />
               </div>
             </div>

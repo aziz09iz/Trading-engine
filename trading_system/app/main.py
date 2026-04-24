@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,12 +7,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from trading_system.app.config import settings
 from trading_system.app.runtime import TradingRuntime
 from trading_system.app.user_settings import UserSettingsUpdate
+from trading_system.storage.migrate import run_migrations
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     runtime = TradingRuntime()
     app.state.runtime = runtime
+    try:
+        migrations_dir = Path(__file__).resolve().parents[1] / "storage" / "migrations"
+        await run_migrations(settings.database_url, migrations_dir)
+        runtime.set_migration_status(True)
+    except Exception as exc:  # pragma: no cover
+        runtime.set_migration_status(False, str(exc))
     try:
         await runtime.refresh()
     except Exception as exc:  # pragma: no cover
@@ -33,8 +41,14 @@ app.add_middleware(
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok", "env": settings.env}
+async def health() -> dict[str, object]:
+    runtime: TradingRuntime = app.state.runtime
+    return {
+        "status": "ok",
+        "env": settings.env,
+        "migration_ok": runtime.snapshot.migration_ok,
+        "migration_error": runtime.snapshot.migration_error,
+    }
 
 
 @app.get("/")
@@ -45,10 +59,13 @@ async def root() -> dict[str, object]:
         "status": "ok",
         "paused": runtime.snapshot.paused,
         "last_error": runtime.snapshot.last_error,
+        "migration_ok": runtime.snapshot.migration_ok,
+        "migration_error": runtime.snapshot.migration_error,
         "endpoints": {
             "health": "/health",
             "overview": "/dashboard/overview",
             "settings": "/settings",
+            "telegram_test": "/settings/telegram/test",
         },
     }
 
@@ -69,6 +86,7 @@ async def risk_state() -> dict[str, float | int | bool]:
 async def pause_engine() -> dict[str, bool]:
     runtime: TradingRuntime = app.state.runtime
     runtime.snapshot.paused = True
+    await runtime.notify_engine_action("paused")
     return {"paused": True}
 
 
@@ -76,6 +94,7 @@ async def pause_engine() -> dict[str, bool]:
 async def resume_engine() -> dict[str, bool]:
     runtime: TradingRuntime = app.state.runtime
     runtime.snapshot.paused = False
+    await runtime.notify_engine_action("resumed")
     return {"paused": False}
 
 
@@ -97,6 +116,8 @@ async def dashboard_overview() -> dict[str, object]:
         "paused": runtime.snapshot.paused,
         "last_error": runtime.snapshot.last_error,
         "generated_at": runtime.snapshot.generated_at,
+        "migration_ok": runtime.snapshot.migration_ok,
+        "migration_error": runtime.snapshot.migration_error,
         "metrics": runtime.snapshot.metrics,
         "universe": runtime.snapshot.universe,
         "signals": runtime.snapshot.signals,
@@ -116,4 +137,12 @@ async def update_settings(update: UserSettingsUpdate) -> dict[str, object]:
     runtime: TradingRuntime = app.state.runtime
     runtime.update_settings(update)
     await runtime.refresh()
+    await runtime.notify_engine_action("settings updated")
     return runtime.settings_store.public_payload()
+
+
+@app.post("/settings/telegram/test")
+async def test_telegram_settings() -> dict[str, object]:
+    runtime: TradingRuntime = app.state.runtime
+    sent = await runtime.send_telegram_test()
+    return {"sent": sent}

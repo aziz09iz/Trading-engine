@@ -9,6 +9,7 @@ from trading_system.app.user_settings import SettingsStore, UserSettings, UserSe
 from trading_system.data.hyperliquid_info import HyperliquidInfoClient
 from trading_system.execution.live_executor import ExecutionResult, LiveExecutionService
 from trading_system.features.oi_history import OpenInterestHistory
+from trading_system.notifications.telegram import TelegramNotifier
 from trading_system.risk.sizing import AccountState, SizingConfig, position_size_usd, risk_pct_for_signal
 from trading_system.signals.engine import rank_trade_candidates
 from trading_system.signals.models import TradeSignal
@@ -19,6 +20,8 @@ class EngineSnapshot:
     paused: bool = True
     last_error: str | None = None
     generated_at: float | None = None
+    migration_ok: bool = False
+    migration_error: str | None = None
     universe: list[dict[str, object]] = field(default_factory=list)
     signals: list[dict[str, object]] = field(default_factory=list)
     orders: list[dict[str, object]] = field(default_factory=list)
@@ -41,7 +44,11 @@ class TradingRuntime:
         )
         self.snapshot = EngineSnapshot()
         self.execution = LiveExecutionService()
+        self.telegram = TelegramNotifier()
         self._task: asyncio.Task | None = None
+        self._last_summary_sent_at = 0.0
+        self._last_runtime_error = ""
+        self._last_runtime_ok = False
 
     @property
     def user_settings(self) -> UserSettings:
@@ -51,6 +58,10 @@ class TradingRuntime:
         updated = self.settings_store.update(update)
         self.client = HyperliquidInfoClient(updated.hyperliquid.api_url)
         return updated
+
+    def set_migration_status(self, ok: bool, error: str | None = None) -> None:
+        self.snapshot.migration_ok = ok
+        self.snapshot.migration_error = error
 
     async def start(self) -> None:
         if self._task is None:
@@ -71,6 +82,7 @@ class TradingRuntime:
                 await self.refresh()
             except Exception as exc:  # pragma: no cover
                 self.snapshot.last_error = str(exc)
+                await self._notify_error(str(exc))
             await asyncio.sleep(self.user_settings.trading.refresh_seconds)
 
     async def refresh(self) -> EngineSnapshot:
@@ -89,6 +101,8 @@ class TradingRuntime:
             paused=self.snapshot.paused,
             last_error=None,
             generated_at=time(),
+            migration_ok=self.snapshot.migration_ok,
+            migration_error=self.snapshot.migration_error,
             universe=[
                 {
                     "symbol": market.symbol,
@@ -102,6 +116,7 @@ class TradingRuntime:
             orders=executed_orders,
             metrics=self._metrics_payload(ranked, eligible_markets),
         )
+        await self._maybe_notify_runtime(ranked, executed_orders)
         return self.snapshot
 
     def _signal_payload(self, signal: TradeSignal, market_map: dict[str, object]) -> dict[str, object]:
@@ -208,3 +223,103 @@ class TradingRuntime:
             "reduce_only_mode": self.user_settings.trading.reduce_only_mode,
             "execution_cooldown_seconds": self.user_settings.trading.execution_cooldown_seconds,
         }
+
+    async def notify_engine_action(self, action: str) -> None:
+        telegram = self.user_settings.telegram
+        if not (telegram.notify_engine_actions and self.telegram.enabled(telegram)):
+            return
+        mode = "shadow" if self.user_settings.trading.shadow_mode else "live"
+        await self._safe_send_telegram(
+            telegram,
+            f"Engine action: {action}\nMode: {mode}\nPaused: {self.snapshot.paused}",
+        )
+
+    async def send_telegram_test(self) -> bool:
+        telegram = self.user_settings.telegram
+        try:
+            return await self.telegram.send_message(
+                telegram,
+                "Trading engine Telegram test message.\nAPI online and bot configuration is valid.",
+            )
+        except Exception:  # pragma: no cover
+            return False
+
+    async def _maybe_notify_runtime(
+        self,
+        ranked: list[TradeSignal],
+        executed_orders: list[dict[str, object]],
+    ) -> None:
+        telegram = self.user_settings.telegram
+        if not self.telegram.enabled(telegram):
+            return
+
+        if self.snapshot.last_error:
+            if telegram.notify_errors and self.snapshot.last_error != self._last_runtime_error:
+                await self._safe_send_telegram(
+                    telegram,
+                    f"Runtime error detected:\n{self.snapshot.last_error}",
+                )
+            self._last_runtime_error = self.snapshot.last_error
+            self._last_runtime_ok = False
+            return
+
+        if telegram.notify_api_status and not self._last_runtime_ok:
+            await self._safe_send_telegram(
+                telegram,
+                f"API status: online\nMigration: {'ok' if self.snapshot.migration_ok else 'pending'}\nMode: {'shadow' if self.user_settings.trading.shadow_mode else 'live'}",
+            )
+        self._last_runtime_error = ""
+        self._last_runtime_ok = True
+
+        if telegram.notify_trade_activity:
+            for order in executed_orders:
+                if order.get("status") in {"submitted", "blocked", "cooldown"}:
+                    await self._safe_send_telegram(
+                        telegram,
+                        "\n".join(
+                            [
+                                f"Trade activity: {order['status']}",
+                                f"Symbol: {order['symbol']}",
+                                f"Side: {order['side']}",
+                                f"Notional: {order['notional_usd']:.2f} USD",
+                                f"Message: {order.get('message', '-')}",
+                            ]
+                        ),
+                    )
+
+        if telegram.notify_pnl_summary:
+            interval_seconds = max(telegram.summary_interval_minutes, 1) * 60
+            now = time()
+            if (now - self._last_summary_sent_at) >= interval_seconds:
+                top_signal = ranked[0] if ranked else None
+                summary_lines = [
+                    "Engine summary",
+                    f"Mode: {'shadow' if self.user_settings.trading.shadow_mode else 'live'}",
+                    f"Paused: {self.snapshot.paused}",
+                    f"Tracked markets: {self.snapshot.metrics.get('tracked_markets', 0)}",
+                    f"Signals: {self.snapshot.metrics.get('signals_count', 0)}",
+                    f"Exposure: {self.snapshot.metrics.get('current_exposure_pct', 0) * 100:.2f}%",
+                    f"Daily PnL: {self.snapshot.metrics.get('daily_pnl_usd', 0):.2f} USD",
+                ]
+                if top_signal is not None:
+                    summary_lines.append(
+                        f"Top signal: {top_signal.symbol} {top_signal.side} strength {top_signal.strength:.2f}"
+                    )
+                await self._safe_send_telegram(telegram, "\n".join(summary_lines))
+                self._last_summary_sent_at = now
+
+    async def _notify_error(self, message: str) -> None:
+        telegram = self.user_settings.telegram
+        if not (telegram.notify_errors and self.telegram.enabled(telegram)):
+            return
+        if message == self._last_runtime_error:
+            return
+        self._last_runtime_error = message
+        self._last_runtime_ok = False
+        await self._safe_send_telegram(telegram, f"Runtime error detected:\n{message}")
+
+    async def _safe_send_telegram(self, telegram, message: str) -> bool:
+        try:
+            return await self.telegram.send_message(telegram, message)
+        except Exception:  # pragma: no cover
+            return False
