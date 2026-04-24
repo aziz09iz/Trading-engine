@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from time import time
 
 from trading_system.app.config import settings
+from trading_system.app.user_settings import SettingsStore, UserSettings, UserSettingsUpdate
 from trading_system.data.hyperliquid_info import HyperliquidInfoClient
 from trading_system.features.oi_history import OpenInterestHistory
 from trading_system.risk.sizing import AccountState, SizingConfig, position_size_usd, risk_pct_for_signal
@@ -25,7 +26,8 @@ class EngineSnapshot:
 
 class TradingRuntime:
     def __init__(self) -> None:
-        self.client = HyperliquidInfoClient(settings.hyperliquid_api_url)
+        self.settings_store = SettingsStore(settings.runtime_settings_path)
+        self.client = HyperliquidInfoClient(self.user_settings.hyperliquid.api_url)
         self.oi_history = OpenInterestHistory(
             path=settings.runtime_state_path,
             window=settings.oi_history_window,
@@ -38,6 +40,15 @@ class TradingRuntime:
         )
         self.snapshot = EngineSnapshot()
         self._task: asyncio.Task | None = None
+
+    @property
+    def user_settings(self) -> UserSettings:
+        return self.settings_store.settings
+
+    def update_settings(self, update: UserSettingsUpdate) -> UserSettings:
+        updated = self.settings_store.update(update)
+        self.client = HyperliquidInfoClient(updated.hyperliquid.api_url)
+        return updated
 
     async def start(self) -> None:
         if self._task is None:
@@ -58,12 +69,19 @@ class TradingRuntime:
                 await self.refresh()
             except Exception as exc:  # pragma: no cover
                 self.snapshot.last_error = str(exc)
-            await asyncio.sleep(settings.engine_refresh_seconds)
+            await asyncio.sleep(self.user_settings.trading.refresh_seconds)
 
     async def refresh(self) -> EngineSnapshot:
-        live = await self.client.fetch_market_snapshot(self.oi_history, top_n=10)
-        ranked = rank_trade_candidates(live.markets)
-        orders = [self._make_order(signal, market_map={row.symbol: row for row in live.markets}) for signal in ranked[:6]]
+        live = await self.client.fetch_market_snapshot(
+            self.oi_history,
+            top_n=self.user_settings.trading.top_n_markets,
+        )
+        eligible_markets = [
+            market for market in live.markets if market.spread_bps <= self.user_settings.trading.max_spread_bps
+        ]
+        market_map = {row.symbol: row for row in eligible_markets}
+        ranked = rank_trade_candidates(eligible_markets)
+        orders = [self._make_order(signal, market_map=market_map) for signal in ranked[:6]]
         self.snapshot = EngineSnapshot(
             paused=self.snapshot.paused,
             last_error=None,
@@ -77,9 +95,9 @@ class TradingRuntime:
                 }
                 for market in live.universe
             ],
-            signals=[self._signal_payload(signal, {row.symbol: row for row in live.markets}) for signal in ranked],
+            signals=[self._signal_payload(signal, market_map) for signal in ranked],
             orders=[order for order in orders if order],
-            metrics=self._metrics_payload(ranked, live.markets),
+            metrics=self._metrics_payload(ranked, eligible_markets),
         )
         return self.snapshot
 
@@ -109,12 +127,19 @@ class TradingRuntime:
         market = market_map[signal.symbol]
         if signal.invalidation_price is None:
             return None
+        config = SizingConfig(
+            min_risk_pct=self.user_settings.trading.min_risk_pct,
+            max_risk_pct=self.user_settings.trading.max_risk_pct,
+            max_total_exposure_pct=self.user_settings.trading.max_total_exposure_pct,
+            max_positions=self.user_settings.trading.max_concurrent_positions,
+            daily_drawdown_stop_pct=self.user_settings.trading.daily_drawdown_stop_pct,
+        )
         notional = position_size_usd(
             signal=signal,
             account=self.account,
             entry_price=market.mid_price,
             stop_price=signal.invalidation_price,
-            config=SizingConfig(),
+            config=config,
         )
         if notional <= 0:
             return None
@@ -124,8 +149,8 @@ class TradingRuntime:
             "type": f"{signal.strategy.value} limit",
             "price": market.mid_price,
             "notional_usd": notional,
-            "risk_pct": risk_pct_for_signal(signal, SizingConfig()),
-            "status": "ready" if not self.snapshot.paused else "paused",
+            "risk_pct": risk_pct_for_signal(signal, config),
+            "status": "ready" if not self.snapshot.paused and not self.user_settings.trading.shadow_mode else "shadow",
         }
 
     def _metrics_payload(self, ranked: list[TradeSignal], markets: list[object]) -> dict[str, object]:
@@ -134,8 +159,12 @@ class TradingRuntime:
             "equity_usd": self.account.equity_usd,
             "daily_pnl_usd": self.account.daily_pnl_usd,
             "open_risk_pct": round(sum(signal.suggested_risk_pct for signal in ranked[:2]), 4),
-            "max_exposure_pct": settings.max_total_exposure_pct,
+            "max_exposure_pct": self.user_settings.trading.max_total_exposure_pct,
             "current_exposure_pct": round(exposure / self.account.equity_usd, 4) if self.account.equity_usd else 0.0,
             "signals_count": len(ranked),
             "tracked_markets": len(markets),
+            "max_concurrent_positions": self.user_settings.trading.max_concurrent_positions,
+            "daily_drawdown_stop_pct": self.user_settings.trading.daily_drawdown_stop_pct,
+            "shadow_mode": self.user_settings.trading.shadow_mode,
+            "reduce_only_mode": self.user_settings.trading.reduce_only_mode,
         }

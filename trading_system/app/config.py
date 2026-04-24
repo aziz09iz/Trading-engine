@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     engine_refresh_seconds: int = 60
     oi_history_window: int = 168
     runtime_state_path: str = "runtime/oi_history.json"
+    runtime_settings_path: str = "runtime/settings.json"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

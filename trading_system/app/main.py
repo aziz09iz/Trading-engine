@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from trading_system.app.config import settings
 from trading_system.app.runtime import TradingRuntime
+from trading_system.app.user_settings import UserSettingsUpdate
 
 
 @asynccontextmanager
@@ -22,6 +24,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Hyperliquid Funding Arbitrage Engine", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -34,9 +42,9 @@ async def risk_state() -> dict[str, float | int | bool]:
     runtime: TradingRuntime = app.state.runtime
     return {
         "daily_drawdown_stop": False,
-        "max_exposure_pct": settings.max_total_exposure_pct,
-        "max_positions": settings.max_concurrent_positions,
-        "daily_drawdown_stop_pct": settings.daily_drawdown_stop_pct,
+        "max_exposure_pct": runtime.user_settings.trading.max_total_exposure_pct,
+        "max_positions": runtime.user_settings.trading.max_concurrent_positions,
+        "daily_drawdown_stop_pct": runtime.user_settings.trading.daily_drawdown_stop_pct,
         "paused": runtime.snapshot.paused,
     }
 
@@ -77,4 +85,19 @@ async def dashboard_overview() -> dict[str, object]:
         "universe": runtime.snapshot.universe,
         "signals": runtime.snapshot.signals,
         "orders": runtime.snapshot.orders,
+        "settings": runtime.settings_store.public_payload(),
     }
+
+
+@app.get("/settings")
+async def get_settings() -> dict[str, object]:
+    runtime: TradingRuntime = app.state.runtime
+    return runtime.settings_store.public_payload()
+
+
+@app.put("/settings")
+async def update_settings(update: UserSettingsUpdate) -> dict[str, object]:
+    runtime: TradingRuntime = app.state.runtime
+    runtime.update_settings(update)
+    await runtime.refresh()
+    return runtime.settings_store.public_payload()

@@ -57,6 +57,22 @@ Available endpoints:
 - `POST /engine/refresh`
 - `POST /engine/pause`
 - `POST /engine/resume`
+- `GET /settings`
+- `PUT /settings`
+
+Dashboard settings now support:
+
+- Hyperliquid account address
+- Hyperliquid secret key
+- API and WebSocket URLs
+- maximum exposure
+- maximum concurrent positions
+- daily drawdown stop
+- min/max risk per trade
+- max spread filter
+- top market count
+- refresh interval
+- shadow mode and reduce-only mode
 
 Current note:
 

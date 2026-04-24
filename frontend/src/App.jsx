@@ -16,6 +16,45 @@ function formatPct(value, digits = 2) {
   return `${(Number(value ?? 0) * 100).toFixed(digits)}%`;
 }
 
+function Input({ label, value, onChange, type = "text", placeholder = "", step }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs uppercase text-stone-500">{label}</span>
+      <input
+        className="w-full rounded-md border border-white/10 bg-stone-950 px-3 py-2 text-sm text-stone-100 outline-none ring-0 placeholder:text-stone-600 focus:border-cyan-300/40"
+        onChange={onChange}
+        placeholder={placeholder}
+        step={step}
+        type={type}
+        value={value}
+      />
+    </label>
+  );
+}
+
+function Toggle({ label, checked, onChange }) {
+  return (
+    <label className="flex items-center justify-between rounded-md border border-white/10 bg-stone-950 px-3 py-2">
+      <span className="text-sm text-stone-300">{label}</span>
+      <button
+        className={classNames(
+          "relative h-6 w-11 rounded-full transition-colors",
+          checked ? "bg-emerald-300" : "bg-stone-700",
+        )}
+        onClick={onChange}
+        type="button"
+      >
+        <span
+          className={classNames(
+            "absolute top-1 h-4 w-4 rounded-full bg-stone-950 transition-transform",
+            checked ? "translate-x-6" : "translate-x-1",
+          )}
+        />
+      </button>
+    </label>
+  );
+}
+
 function StatusPill({ status }) {
   const palette = {
     live: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
@@ -85,7 +124,35 @@ function App() {
     orders: [],
     universe: [],
     last_error: null,
+    settings: {
+      hyperliquid: {},
+      trading: {},
+    },
   });
+  const [settingsDraft, setSettingsDraft] = useState({
+    hyperliquid: {
+      account_address: "",
+      secret_key: "",
+      api_url: "https://api.hyperliquid.xyz",
+      ws_url: "wss://api.hyperliquid.xyz/ws",
+      has_secret_key: false,
+    },
+    trading: {
+      max_total_exposure_pct: 0.3,
+      max_concurrent_positions: 6,
+      daily_drawdown_stop_pct: 0.03,
+      min_risk_pct: 0.0025,
+      max_risk_pct: 0.0075,
+      max_spread_bps: 5,
+      top_n_markets: 10,
+      refresh_seconds: 60,
+      shadow_mode: true,
+      reduce_only_mode: false,
+      atr_stop_min: 1.2,
+      atr_stop_max: 2.0,
+    },
+  });
+  const [settingsPending, setSettingsPending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +170,7 @@ function App() {
           setHealth("online");
           setEnginePaused(Boolean(overviewPayload.paused));
           setOverview(overviewPayload);
+          setSettingsDraft(overviewPayload.settings);
         }
       } catch {
         if (!cancelled) setHealth("offline");
@@ -130,13 +198,60 @@ function App() {
       setEnginePaused(nextPaused);
       const response = await fetch(`${API_URL}/dashboard/overview`);
       if (response.ok) {
-        setOverview(await response.json());
+        const payload = await response.json();
+        setOverview(payload);
+        setSettingsDraft(payload.settings);
       }
     } catch {
       setHealth("offline");
     } finally {
       setActionPending(false);
     }
+  }
+
+  async function saveSettings() {
+    setSettingsPending(true);
+    try {
+      const response = await fetch(`${API_URL}/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settingsDraft),
+      });
+      if (!response.ok) {
+        throw new Error("settings update failed");
+      }
+      const overviewResponse = await fetch(`${API_URL}/dashboard/overview`);
+      if (!overviewResponse.ok) {
+        throw new Error("overview refresh failed");
+      }
+      const payload = await overviewResponse.json();
+      setOverview(payload);
+      setSettingsDraft(payload.settings);
+    } catch {
+      setHealth("offline");
+    } finally {
+      setSettingsPending(false);
+    }
+  }
+
+  function updateHyperliquidField(field, value) {
+    setSettingsDraft((current) => ({
+      ...current,
+      hyperliquid: {
+        ...current.hyperliquid,
+        [field]: value,
+      },
+    }));
+  }
+
+  function updateTradingField(field, value) {
+    setSettingsDraft((current) => ({
+      ...current,
+      trading: {
+        ...current.trading,
+        [field]: value,
+      },
+    }));
   }
 
   return (
@@ -162,8 +277,9 @@ function App() {
             <button
               className="rounded-md border border-white/10 bg-stone-900 px-4 py-2 text-sm text-stone-200 hover:bg-stone-800"
               type="button"
+              onClick={() => updateTradingField("reduce_only_mode", !settingsDraft.trading.reduce_only_mode)}
             >
-              Reduce Only
+              {settingsDraft.trading.reduce_only_mode ? "Reduce Only On" : "Reduce Only Off"}
             </button>
             <button
               className={classNames(
@@ -291,6 +407,138 @@ function App() {
             </div>
           </section>
         </aside>
+
+        <section className="rounded-lg border border-white/10 bg-zinc-950/80 shadow-glow lg:col-span-12">
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <h2 className="font-semibold">Settings</h2>
+            <button
+              className={classNames(
+                "rounded-md px-4 py-2 text-sm font-semibold",
+                settingsPending ? "bg-stone-700 text-stone-300" : "bg-cyan-300 text-stone-950 hover:bg-cyan-200",
+              )}
+              disabled={settingsPending}
+              onClick={saveSettings}
+              type="button"
+            >
+              {settingsPending ? "Saving" : "Save Settings"}
+            </button>
+          </div>
+          <div className="grid gap-5 p-4 lg:grid-cols-2">
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold uppercase text-stone-400">Hyperliquid</h3>
+              <Input
+                label="Account Address"
+                onChange={(event) => updateHyperliquidField("account_address", event.target.value)}
+                placeholder="0x..."
+                value={settingsDraft.hyperliquid.account_address ?? ""}
+              />
+              <Input
+                label="Secret Key"
+                onChange={(event) => updateHyperliquidField("secret_key", event.target.value)}
+                placeholder={settingsDraft.hyperliquid.has_secret_key ? "Stored secret retained if left blank" : "Enter secret key"}
+                value={settingsDraft.hyperliquid.secret_key ?? ""}
+              />
+              <Input
+                label="API URL"
+                onChange={(event) => updateHyperliquidField("api_url", event.target.value)}
+                value={settingsDraft.hyperliquid.api_url ?? ""}
+              />
+              <Input
+                label="WebSocket URL"
+                onChange={(event) => updateHyperliquidField("ws_url", event.target.value)}
+                value={settingsDraft.hyperliquid.ws_url ?? ""}
+              />
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold uppercase text-stone-400">Trading Controls</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input
+                  label="Maximum Exposure"
+                  onChange={(event) => updateTradingField("max_total_exposure_pct", Number(event.target.value))}
+                  step="0.01"
+                  type="number"
+                  value={settingsDraft.trading.max_total_exposure_pct ?? 0}
+                />
+                <Input
+                  label="Max Concurrent Positions"
+                  onChange={(event) => updateTradingField("max_concurrent_positions", Number(event.target.value))}
+                  step="1"
+                  type="number"
+                  value={settingsDraft.trading.max_concurrent_positions ?? 0}
+                />
+                <Input
+                  label="Daily Drawdown Stop"
+                  onChange={(event) => updateTradingField("daily_drawdown_stop_pct", Number(event.target.value))}
+                  step="0.001"
+                  type="number"
+                  value={settingsDraft.trading.daily_drawdown_stop_pct ?? 0}
+                />
+                <Input
+                  label="Min Risk Per Trade"
+                  onChange={(event) => updateTradingField("min_risk_pct", Number(event.target.value))}
+                  step="0.0005"
+                  type="number"
+                  value={settingsDraft.trading.min_risk_pct ?? 0}
+                />
+                <Input
+                  label="Max Risk Per Trade"
+                  onChange={(event) => updateTradingField("max_risk_pct", Number(event.target.value))}
+                  step="0.0005"
+                  type="number"
+                  value={settingsDraft.trading.max_risk_pct ?? 0}
+                />
+                <Input
+                  label="Max Spread Bps"
+                  onChange={(event) => updateTradingField("max_spread_bps", Number(event.target.value))}
+                  step="0.1"
+                  type="number"
+                  value={settingsDraft.trading.max_spread_bps ?? 0}
+                />
+                <Input
+                  label="Top Markets"
+                  onChange={(event) => updateTradingField("top_n_markets", Number(event.target.value))}
+                  step="1"
+                  type="number"
+                  value={settingsDraft.trading.top_n_markets ?? 10}
+                />
+                <Input
+                  label="Refresh Seconds"
+                  onChange={(event) => updateTradingField("refresh_seconds", Number(event.target.value))}
+                  step="1"
+                  type="number"
+                  value={settingsDraft.trading.refresh_seconds ?? 60}
+                />
+                <Input
+                  label="ATR Stop Min"
+                  onChange={(event) => updateTradingField("atr_stop_min", Number(event.target.value))}
+                  step="0.1"
+                  type="number"
+                  value={settingsDraft.trading.atr_stop_min ?? 1.2}
+                />
+                <Input
+                  label="ATR Stop Max"
+                  onChange={(event) => updateTradingField("atr_stop_max", Number(event.target.value))}
+                  step="0.1"
+                  type="number"
+                  value={settingsDraft.trading.atr_stop_max ?? 2}
+                />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Toggle
+                  checked={Boolean(settingsDraft.trading.shadow_mode)}
+                  label="Shadow Mode"
+                  onChange={() => updateTradingField("shadow_mode", !settingsDraft.trading.shadow_mode)}
+                />
+                <Toggle
+                  checked={Boolean(settingsDraft.trading.reduce_only_mode)}
+                  label="Reduce Only Mode"
+                  onChange={() => updateTradingField("reduce_only_mode", !settingsDraft.trading.reduce_only_mode)}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section className="rounded-lg border border-white/10 bg-zinc-950/80 shadow-glow lg:col-span-12">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
