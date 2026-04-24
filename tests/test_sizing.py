@@ -8,6 +8,12 @@ def test_position_size_is_capped_by_exposure() -> None:
         side="long",
         strategy=StrategyType.CONTINUATION,
         strength=0.90,
+        funding_score=0.9,
+        positioning_score=0.8,
+        orderflow_score=0.7,
+        alignment_score=0.8,
+        trend_score=0.6,
+        suggested_risk_pct=0.0075,
         reason="test",
     )
     account = AccountState(
@@ -28,6 +34,12 @@ def test_daily_drawdown_blocks_new_positions() -> None:
         side="long",
         strategy=StrategyType.CONTINUATION,
         strength=0.90,
+        funding_score=0.9,
+        positioning_score=0.8,
+        orderflow_score=0.7,
+        alignment_score=0.8,
+        trend_score=0.6,
+        suggested_risk_pct=0.0075,
         reason="test",
     )
     account = AccountState(

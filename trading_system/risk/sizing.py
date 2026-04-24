@@ -21,8 +21,8 @@ class SizingConfig:
 
 
 def risk_pct_for_signal(signal: TradeSignal, config: SizingConfig) -> float:
-    if signal.strength >= 0.85:
-        return config.max_risk_pct
+    if signal.suggested_risk_pct > 0:
+        return max(config.min_risk_pct, min(config.max_risk_pct, signal.suggested_risk_pct))
 
     if signal.strength <= 0.70:
         return config.min_risk_pct

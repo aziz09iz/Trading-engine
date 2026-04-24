@@ -10,17 +10,27 @@ def clamp(value: float, lo: float = -1.0, hi: float = 1.0) -> float:
 
 def funding_pressure(features: MarketFeatures) -> float:
     predicted_edge = features.predicted_funding - features.current_funding_1h
-    persistence_boost = min(features.funding_persistence / 5.0, 1.0)
-    raw = (predicted_edge * 10_000.0) + (features.funding_momentum * 5_000.0)
-    return clamp(tanh(raw) * persistence_boost)
+    persistence_boost = min(features.funding_persistence / 4.0, 1.0)
+    raw = (
+        (features.current_funding_1h * 7_500.0)
+        + (predicted_edge * 12_000.0)
+        + (features.funding_momentum * 5_500.0)
+        + (features.microstructure_momentum * 4_000.0)
+    )
+    return clamp(tanh(raw) * (0.65 + 0.35 * persistence_boost))
 
 
-def oi_trend(features: MarketFeatures) -> float:
-    return clamp(tanh(features.oi_delta * 5.0))
+def positioning_pressure(features: MarketFeatures) -> float:
+    crowd_skew = (features.long_short_ratio - 0.5) * 2.0
+    oi_expansion = tanh(features.oi_delta * 5.0)
+    oi_extreme = tanh(features.oi_zscore / 2.5)
+    return clamp(0.40 * crowd_skew + 0.35 * oi_expansion + 0.25 * oi_extreme)
 
 
-def cvd_strength(features: MarketFeatures) -> float:
-    return clamp(tanh(features.cvd_delta / max(abs(features.cvd), 1.0)))
+def orderflow_pressure(features: MarketFeatures) -> float:
+    flow_delta = tanh(features.cvd_delta / max(abs(features.cvd), 1.0))
+    flow_level = tanh(features.cvd / 10_000_000.0)
+    return clamp(0.65 * flow_delta + 0.35 * flow_level)
 
 
 def cross_exchange_alignment(features: MarketFeatures) -> float:
@@ -35,10 +45,32 @@ def cross_exchange_alignment(features: MarketFeatures) -> float:
     return clamp(tanh(avg_rate * 10_000.0) * (1.0 - penalty))
 
 
+def trend_filter(features: MarketFeatures) -> float:
+    ma_gap = 0.0
+    if features.mid_price > 0:
+        ma_gap = (features.ma_fast - features.ma_slow) / features.mid_price
+
+    atr_penalty = min(features.atr_pct * 8.0, 0.35)
+    return clamp(tanh(ma_gap * 40.0) * (1.0 - atr_penalty))
+
+
 def weighted_score(features: MarketFeatures) -> float:
     return clamp(
         0.30 * funding_pressure(features)
-        + 0.25 * oi_trend(features)
-        + 0.25 * cvd_strength(features)
+        + 0.25 * positioning_pressure(features)
+        + 0.25 * orderflow_pressure(features)
         + 0.20 * cross_exchange_alignment(features)
     )
+
+
+def conviction_score(features: MarketFeatures) -> float:
+    raw = (
+        0.28 * abs(funding_pressure(features))
+        + 0.24 * abs(positioning_pressure(features))
+        + 0.20 * abs(orderflow_pressure(features))
+        + 0.16 * abs(cross_exchange_alignment(features))
+        + 0.12 * abs(trend_filter(features))
+    )
+    liquidity_bonus = min(features.liquidity_score, 1.0) * 0.05
+    spread_penalty = min(features.spread_bps / 10.0, 0.20)
+    return clamp(raw + liquidity_bonus - spread_penalty, 0.0, 1.0)

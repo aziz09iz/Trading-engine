@@ -168,9 +168,12 @@ function App() {
               <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
                 API {health}
               </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
+                Universe top 10 liquid
+              </span>
             </div>
             <p className="mt-1 text-sm text-stone-400">
-              Hyperliquid funding, positioning, order flow, and cross-exchange alignment.
+              Hyperliquid funding, positioning, order flow, cross-exchange alignment, and dynamic risk.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -257,6 +260,7 @@ function App() {
                 ["Max exposure", "30%", "w-7/12", "bg-cyan-300"],
                 ["Concurrent positions", "2 / 6", "w-4/12", "bg-emerald-300"],
                 ["Daily drawdown", "0.24% / 3%", "w-1/12", "bg-amber-300"],
+                ["Dynamic risk", "0.25% to 0.75%", "w-3/12", "bg-violet-300"],
               ].map(([label, value, width, color]) => (
                 <div key={label}>
                   <div className="mb-2 flex justify-between text-sm">

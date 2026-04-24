@@ -6,14 +6,41 @@ This repository is an implementation scaffold, not financial advice and not a tu
 
 ## Core Components
 
-- `trading_system/data`: exchange ingestion adapters.
-- `trading_system/features`: funding, OI, CVD, and microstructure features.
-- `trading_system/signals`: continuation and mean-reversion signal scoring.
+- `trading_system/data`: exchange ingestion adapters and top-10 liquidity universe selection.
+- `trading_system/features`: funding, OI, CVD, trend, ATR, and microstructure features.
+- `trading_system/signals`: continuation and mean-reversion scoring on funding, positioning, order flow, cross-exchange alignment, and trend.
 - `trading_system/risk`: position sizing and portfolio limits.
 - `trading_system/execution`: adaptive limit order planning and Hyperliquid execution adapter.
 - `trading_system/backtest`: historical replay broker and metrics.
 - `trading_system/app`: FastAPI control plane.
 - `frontend`: React + Tailwind trading dashboard.
+
+## Trading Logic
+
+The engine is designed around the top 10 Hyperliquid markets by liquidity and volume, not a fixed manual watchlist.
+
+Every market is scored from:
+
+- current funding rate
+- predicted next funding rate
+- rate persistence
+- funding microstructure momentum
+- CVD
+- long/short ratio
+- OI delta
+- OI absolute level relative to history
+- cross-exchange predicted funding alignment
+- ATR and MA trend context
+
+Continuation trades follow the crowded side only when funding, OI expansion, CVD, and trend all agree.
+Mean reversion trades fade the crowd only when funding is extreme, positioning is skewed, OI stops expanding, and CVD diverges.
+
+Risk is dynamic:
+
+- weak-valid setup: near minimum risk
+- strong confluence plus high liquidity: higher risk
+- mean reversion gets slightly less risk than continuation at the same conviction
+- high spread and portfolio constraints still veto trades
 
 ## Quick Start
 
