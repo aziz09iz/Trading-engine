@@ -642,7 +642,7 @@ function App() {
               {t.nav.dashboard}
             </MenuButton>
             <MenuButton active={activeMenu === "pairs"} onClick={() => setActiveMenu("pairs")}>
-              {t.nav.pairs} ({overview.universe.length || settingsDraft.trading.top_n_markets || 50})
+              {t.nav.pairs} ({overview.universe.length}/{settingsDraft.trading.top_n_markets || 50})
             </MenuButton>
             <MenuButton active={activeMenu === "settings"} onClick={() => setActiveMenu("settings")}>
               {t.nav.settings}

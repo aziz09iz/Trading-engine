@@ -245,7 +245,7 @@ class HyperliquidInfoClient:
         mid = self._mid_price(context)
         if bid > 0 and ask > 0 and mid > 0:
             return ((ask - bid) / mid) * 10_000.0
-        return 10.0
+        return 0.0
 
     def _build_funding_series(self, context: dict[str, object]) -> list[float]:
         candidates: list[float] = []

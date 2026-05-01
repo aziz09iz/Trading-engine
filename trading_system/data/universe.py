@@ -26,4 +26,6 @@ def select_top_liquid_markets(
     max_spread_bps: float = 8.0,
 ) -> list[UniverseMetrics]:
     eligible = [market for market in markets if market.spread_bps <= max_spread_bps]
+    if not eligible:
+        eligible = markets
     return sorted(eligible, key=liquidity_score, reverse=True)[:limit]
