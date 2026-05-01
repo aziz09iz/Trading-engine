@@ -2,141 +2,400 @@ import { useEffect, useMemo, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
+const copy = {
+  en: {
+    title: "Hyperliquid Trading Console",
+    subtitle:
+      "Funding, positioning, real trade-flow, cross-exchange alignment, dynamic risk, and Telegram notifications.",
+    apiOnline: "API online",
+    apiOffline: "API offline",
+    migrationOk: "Migration ok",
+    migrationPending: "Migration pending",
+    topUniverse: "Top 50 liquid markets",
+    executionShadow: "Execution shadow",
+    executionLive: "Execution live",
+    reduceOnlyOn: "Reduce-only on",
+    reduceOnlyOff: "Reduce-only off",
+    cancelAll: "Cancel all",
+    flattenAll: "Flatten all",
+    saveSettings: "Save settings",
+    saving: "Saving",
+    sendTelegramTest: "Send Telegram test",
+    sending: "Sending",
+    refreshNow: "Refresh now",
+    metrics: {
+      equity: "Equity",
+      exposure: "Exposure",
+      withdrawable: "Withdrawable",
+      dailyPnl: "Daily PnL",
+      signals: "Signals",
+      livePositions: "Live positions",
+    },
+    sections: {
+      signals: "Funding Signal Board",
+      positions: "Live Positions",
+      openOrders: "Open Orders",
+      fills: "Recent Fills",
+      controls: "Kill Switch & Runtime",
+      settings: "Settings",
+      universe: "Live Universe",
+      activity: "Runtime Activity",
+    },
+    labels: {
+      network: "Network",
+      language: "Language",
+      accountAddress: "Account address",
+      secretKey: "Secret key",
+      apiUrl: "API URL",
+      wsUrl: "WebSocket URL",
+      maxExposure: "Maximum exposure",
+      maxPositions: "Maximum concurrent positions",
+      drawdown: "Daily drawdown stop",
+      minRisk: "Min risk per trade",
+      maxRisk: "Max risk per trade",
+      maxSpread: "Max spread bps",
+      topMarkets: "Top markets",
+      refresh: "Refresh seconds",
+      cooldown: "Execution cooldown",
+      atrMin: "ATR stop min",
+      atrMax: "ATR stop max",
+      shadowMode: "Shadow mode",
+      reduceOnly: "Reduce-only mode",
+      realTradeStream: "Use real trade stream",
+      externalSentiment: "Use external long/short data",
+      minLiquidity: "Minimum liquidity score",
+      minSignal: "Minimum signal strength",
+      aggressiveSignal: "Aggressive signal strength",
+      trendAlignment: "Require trend alignment",
+      crossAlignment: "Require cross-exchange alignment",
+      telegramEnabled: "Enable Telegram notifications",
+      botToken: "Bot token",
+      chatId: "Chat ID",
+      summaryInterval: "Summary interval minutes",
+      notifyApi: "Notify API status",
+      notifyActions: "Notify engine actions",
+      notifyTrades: "Notify trade activity",
+      notifyPnl: "Notify PnL summary",
+      notifyErrors: "Notify runtime errors",
+    },
+    table: {
+      symbol: "Symbol",
+      funding: "Funding",
+      predicted: "Predicted",
+      oi: "OI delta",
+      crowd: "L/S",
+      cvd: "CVD delta",
+      signal: "Signal",
+      strength: "Strength",
+      side: "Side",
+      size: "Size",
+      notional: "Notional",
+      entry: "Entry",
+      mark: "Mark",
+      pnl: "PnL",
+      leverage: "Leverage",
+      type: "Type",
+      price: "Price",
+      remaining: "Remaining",
+      fee: "Fee",
+      direction: "Direction",
+      status: "Status",
+      time: "Time",
+    },
+    emptySignals: "No qualified trades right now. The engine is watching the live top-liquidity universe.",
+    emptyPositions: "No live positions found for this account.",
+    emptyOrders: "No open orders found for this account.",
+    emptyFills: "No recent fills found for this account.",
+    emptyActivity: "No runtime activity yet.",
+    shadowExplained: "Simulate entries without sending live orders.",
+    reduceExplained: "Allow only orders that reduce existing exposure.",
+    runtimeStatus: "Runtime status",
+    telegramStatus: "Telegram",
+    liveAccount: "Live account",
+  },
+  id: {
+    title: "Hyperliquid Trading Console",
+    subtitle:
+      "Funding, positioning, arus trade real, alignment lintas exchange, risk dinamis, dan notifikasi Telegram.",
+    apiOnline: "API online",
+    apiOffline: "API offline",
+    migrationOk: "Migrasi ok",
+    migrationPending: "Migrasi pending",
+    topUniverse: "Top 50 pair paling liquid",
+    executionShadow: "Eksekusi shadow",
+    executionLive: "Eksekusi live",
+    reduceOnlyOn: "Reduce-only aktif",
+    reduceOnlyOff: "Reduce-only nonaktif",
+    cancelAll: "Cancel semua",
+    flattenAll: "Flatten semua",
+    saveSettings: "Simpan pengaturan",
+    saving: "Menyimpan",
+    sendTelegramTest: "Kirim tes Telegram",
+    sending: "Mengirim",
+    refreshNow: "Refresh sekarang",
+    metrics: {
+      equity: "Equity",
+      exposure: "Eksposur",
+      withdrawable: "Saldo dapat ditarik",
+      dailyPnl: "PnL harian",
+      signals: "Sinyal",
+      livePositions: "Posisi live",
+    },
+    sections: {
+      signals: "Papan Sinyal Funding",
+      positions: "Posisi Live",
+      openOrders: "Open Order",
+      fills: "Fill Terbaru",
+      controls: "Kill Switch & Runtime",
+      settings: "Pengaturan",
+      universe: "Universe Live",
+      activity: "Aktivitas Runtime",
+    },
+    labels: {
+      network: "Network",
+      language: "Bahasa",
+      accountAddress: "Alamat akun",
+      secretKey: "Secret key",
+      apiUrl: "URL API",
+      wsUrl: "URL WebSocket",
+      maxExposure: "Eksposur maksimum",
+      maxPositions: "Maksimum posisi bersamaan",
+      drawdown: "Batas drawdown harian",
+      minRisk: "Risk minimum per trade",
+      maxRisk: "Risk maksimum per trade",
+      maxSpread: "Spread maksimum bps",
+      topMarkets: "Jumlah market",
+      refresh: "Refresh detik",
+      cooldown: "Cooldown eksekusi",
+      atrMin: "ATR stop minimum",
+      atrMax: "ATR stop maksimum",
+      shadowMode: "Mode shadow",
+      reduceOnly: "Mode reduce-only",
+      realTradeStream: "Pakai trade stream real",
+      externalSentiment: "Pakai data long/short eksternal",
+      minLiquidity: "Skor likuiditas minimum",
+      minSignal: "Kekuatan sinyal minimum",
+      aggressiveSignal: "Sinyal ukuran agresif",
+      trendAlignment: "Wajib align dengan trend",
+      crossAlignment: "Wajib align lintas exchange",
+      telegramEnabled: "Aktifkan notifikasi Telegram",
+      botToken: "Bot token",
+      chatId: "Chat ID",
+      summaryInterval: "Interval ringkasan menit",
+      notifyApi: "Kirim status API",
+      notifyActions: "Kirim aksi engine",
+      notifyTrades: "Kirim aktivitas trading",
+      notifyPnl: "Kirim ringkasan PnL",
+      notifyErrors: "Kirim error runtime",
+    },
+    table: {
+      symbol: "Simbol",
+      funding: "Funding",
+      predicted: "Prediksi",
+      oi: "Delta OI",
+      crowd: "L/S",
+      cvd: "Delta CVD",
+      signal: "Sinyal",
+      strength: "Kekuatan",
+      side: "Sisi",
+      size: "Ukuran",
+      notional: "Notional",
+      entry: "Entry",
+      mark: "Mark",
+      pnl: "PnL",
+      leverage: "Leverage",
+      type: "Tipe",
+      price: "Harga",
+      remaining: "Sisa",
+      fee: "Fee",
+      direction: "Arah",
+      status: "Status",
+      time: "Waktu",
+    },
+    emptySignals: "Belum ada trade yang lolos filter. Engine tetap memantau universe live paling liquid.",
+    emptyPositions: "Tidak ada posisi live untuk akun ini.",
+    emptyOrders: "Tidak ada open order untuk akun ini.",
+    emptyFills: "Belum ada fill terbaru untuk akun ini.",
+    emptyActivity: "Belum ada aktivitas runtime.",
+    shadowExplained: "Simulasikan entry tanpa mengirim order live.",
+    reduceExplained: "Hanya izinkan order yang mengurangi eksposur.",
+    runtimeStatus: "Status runtime",
+    telegramStatus: "Telegram",
+    liveAccount: "Akun live",
+  },
+};
+
 function classNames(...items) {
   return items.filter(Boolean).join(" ");
 }
 
-function formatUsd(value) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(
-    Number(value ?? 0),
-  );
+function formatUsd(value, digits = 0) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: digits,
+  }).format(Number(value ?? 0));
 }
 
 function formatPct(value, digits = 2) {
   return `${(Number(value ?? 0) * 100).toFixed(digits)}%`;
 }
 
-function Input({ label, value, onChange, type = "text", placeholder = "", step }) {
+function formatTs(value) {
+  if (!value) return "-";
+  return new Date(Number(value)).toLocaleString();
+}
+
+function Panel({ title, description, actions, children, className = "" }) {
+  return (
+    <section className={classNames("overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/80", className)}>
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+        <div>
+          <h2 className="text-sm font-semibold tracking-wide text-white">{title}</h2>
+          {description ? <p className="mt-1 text-xs text-slate-400">{description}</p> : null}
+        </div>
+        {actions}
+      </div>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function MetricCard({ label, value, detail, accent = "cyan" }) {
+  const accents = {
+    cyan: "from-cyan-400/20 to-cyan-400/5 text-cyan-100",
+    emerald: "from-emerald-400/20 to-emerald-400/5 text-emerald-100",
+    amber: "from-amber-300/20 to-amber-300/5 text-amber-100",
+    rose: "from-rose-400/20 to-rose-400/5 text-rose-100",
+  };
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/80 p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <div className={classNames("mt-3 rounded-xl bg-gradient-to-r px-3 py-4 text-2xl font-semibold", accents[accent])}>
+        {value}
+      </div>
+      <p className="mt-3 text-sm text-slate-400">{detail}</p>
+    </div>
+  );
+}
+
+function Input({ label, value, onChange, type = "text", step, placeholder = "" }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs uppercase text-stone-500">{label}</span>
+      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">{label}</span>
       <input
-        className="w-full rounded-md border border-white/10 bg-stone-950 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-600 focus:border-cyan-300/40"
-        onChange={onChange}
-        placeholder={placeholder}
-        step={step}
-        type={type}
+        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-cyan-300/40"
         value={value}
+        onChange={onChange}
+        type={type}
+        step={step}
+        placeholder={placeholder}
       />
     </label>
   );
 }
 
-function Toggle({ label, checked, onChange }) {
+function Select({ label, value, onChange, options }) {
   return (
-    <label className="flex items-center justify-between rounded-md border border-white/10 bg-stone-950 px-3 py-2">
-      <span className="text-sm text-stone-300">{label}</span>
-      <button
-        className={classNames(
-          "relative h-6 w-11 rounded-full transition-colors",
-          checked ? "bg-emerald-300" : "bg-stone-700",
-        )}
-        onClick={onChange}
-        type="button"
+    <label className="block">
+      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">{label}</span>
+      <select
+        className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-300/40"
+        value={value}
+        onChange={onChange}
       >
-        <span
-          className={classNames(
-            "absolute top-1 h-4 w-4 rounded-full bg-stone-950 transition-transform",
-            checked ? "translate-x-6" : "translate-x-1",
-          )}
-        />
-      </button>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
 
-function StatusPill({ status }) {
-  const palette = {
-    live: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
-    paused: "border-amber-300/30 bg-amber-300/10 text-amber-100",
-    danger: "border-rose-400/30 bg-rose-400/10 text-rose-100",
-  };
+function Toggle({ label, checked, onChange, detail }) {
   return (
-    <span className={classNames("rounded-full border px-3 py-1 text-xs font-medium", palette[status])}>
-      {status.toUpperCase()}
-    </span>
-  );
-}
-
-function Metric({ label, value, detail, tone = "neutral" }) {
-  const tones = {
-    neutral: "text-stone-100",
-    good: "text-emerald-200",
-    warn: "text-amber-100",
-    bad: "text-rose-100",
-  };
-  return (
-    <div className="rounded-lg border border-white/10 bg-zinc-950/80 p-4 shadow-glow">
-      <p className="text-xs uppercase text-stone-500">{label}</p>
-      <div className={classNames("mt-3 text-2xl font-semibold", tones[tone])}>{value}</div>
-      <p className="mt-2 text-sm text-stone-400">{detail}</p>
+    <div className="rounded-xl border border-white/10 bg-slate-950 px-3 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-slate-200">{label}</p>
+          {detail ? <p className="mt-1 text-xs text-slate-500">{detail}</p> : null}
+        </div>
+        <button
+          type="button"
+          onClick={onChange}
+          className={classNames("relative h-6 w-11 rounded-full transition-colors", checked ? "bg-cyan-300" : "bg-slate-700")}
+        >
+          <span
+            className={classNames(
+              "absolute top-1 h-4 w-4 rounded-full bg-slate-950 transition-transform",
+              checked ? "translate-x-6" : "translate-x-1",
+            )}
+          />
+        </button>
+      </div>
     </div>
   );
 }
 
-function StrengthBar({ value }) {
-  const pct = Math.round(value * 100);
-  const color = value >= 0.85 ? "bg-emerald-300" : value >= 0.7 ? "bg-cyan-300" : "bg-stone-500";
+function StatusChip({ label, tone = "slate" }) {
+  const tones = {
+    slate: "border-white/10 bg-white/5 text-slate-300",
+    cyan: "border-cyan-300/20 bg-cyan-300/10 text-cyan-100",
+    emerald: "border-emerald-300/20 bg-emerald-300/10 text-emerald-100",
+    amber: "border-amber-300/20 bg-amber-300/10 text-amber-100",
+    rose: "border-rose-300/20 bg-rose-300/10 text-rose-100",
+  };
+  return <span className={classNames("rounded-full border px-3 py-1 text-xs font-medium", tones[tone])}>{label}</span>;
+}
+
+function StrengthCell({ value }) {
+  const pct = Math.round(Number(value ?? 0) * 100);
+  const tone = pct >= 90 ? "bg-emerald-300" : pct >= 78 ? "bg-cyan-300" : "bg-slate-500";
   return (
     <div className="flex min-w-32 items-center gap-3">
-      <div className="h-2 w-24 rounded-full bg-stone-800">
-        <div className={classNames("h-2 rounded-full", color)} style={{ width: `${pct}%` }} />
+      <div className="h-2 w-24 rounded-full bg-slate-800">
+        <div className={classNames("h-2 rounded-full", tone)} style={{ width: `${pct}%` }} />
       </div>
-      <span className="font-mono text-xs text-stone-300">{pct}</span>
+      <span className="font-mono text-xs text-slate-300">{pct}</span>
     </div>
   );
 }
 
-function SignalBadge({ value }) {
-  const isLong = value.includes("LONG");
-  const isShort = value.includes("SHORT");
-  return (
-    <span
-      className={classNames(
-        "rounded-md px-2 py-1 text-xs font-semibold",
-        isLong && "bg-emerald-400/10 text-emerald-200",
-        isShort && "bg-rose-400/10 text-rose-200",
-        !isLong && !isShort && "bg-stone-800 text-stone-300",
-      )}
-    >
-      {value}
-    </span>
-  );
+function TableWrap({ children }) {
+  return <div className="overflow-x-auto">{children}</div>;
 }
 
 function App() {
-  const [enginePaused, setEnginePaused] = useState(true);
   const [health, setHealth] = useState("checking");
-  const [actionPending, setActionPending] = useState(false);
   const [settingsPending, setSettingsPending] = useState(false);
   const [telegramTestPending, setTelegramTestPending] = useState(false);
+  const [killPending, setKillPending] = useState("");
   const [flashMessage, setFlashMessage] = useState("");
   const [overview, setOverview] = useState({
     metrics: {},
     signals: [],
     orders: [],
     universe: [],
+    positions: [],
+    open_orders: [],
+    fills: [],
+    activity: [],
     last_error: null,
     migration_ok: false,
     migration_error: null,
     settings: {
+      app: { language: "en" },
       hyperliquid: {},
       telegram: {},
       trading: {},
     },
   });
   const [settingsDraft, setSettingsDraft] = useState({
+    app: { language: "en" },
     hyperliquid: {
+      network: "mainnet",
       account_address: "",
       secret_key: "",
       api_url: "https://api.hyperliquid.xyz",
@@ -162,103 +421,65 @@ function App() {
       min_risk_pct: 0.0025,
       max_risk_pct: 0.0075,
       max_spread_bps: 5,
-      top_n_markets: 10,
+      top_n_markets: 50,
       refresh_seconds: 60,
       execution_cooldown_seconds: 300,
       shadow_mode: true,
       reduce_only_mode: false,
       atr_stop_min: 1.2,
-      atr_stop_max: 2.0,
+      atr_stop_max: 2,
+      use_real_trade_stream: true,
+      use_external_sentiment: true,
+      min_liquidity_score: 0.15,
+      min_signal_strength: 0.78,
+      aggressive_signal_strength: 0.9,
+      require_trend_alignment: true,
+      require_cross_exchange_alignment: true,
     },
   });
 
+  const language = settingsDraft.app?.language ?? "en";
+  const t = copy[language] ?? copy.en;
+
+  async function load() {
+    try {
+      const [healthRes, overviewRes] = await Promise.all([fetch(`${API_URL}/health`), fetch(`${API_URL}/dashboard/overview`)]);
+      if (!healthRes.ok || !overviewRes.ok) throw new Error("bad response");
+      const overviewPayload = await overviewRes.json();
+      setHealth("online");
+      setOverview(overviewPayload);
+      setSettingsDraft(overviewPayload.settings);
+    } catch {
+      setHealth("offline");
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      try {
-        const [healthRes, overviewRes] = await Promise.all([
-          fetch(`${API_URL}/health`),
-          fetch(`${API_URL}/dashboard/overview`),
-        ]);
-        if (!healthRes.ok || !overviewRes.ok) {
-          throw new Error("bad response");
-        }
-        const overviewPayload = await overviewRes.json();
-        if (!cancelled) {
-          setHealth("online");
-          setEnginePaused(Boolean(overviewPayload.paused));
-          setOverview(overviewPayload);
-          setSettingsDraft(overviewPayload.settings);
-        }
-      } catch {
-        if (!cancelled) {
-          setHealth("offline");
-        }
-      }
-    }
-
-    load();
-    const intervalId = window.setInterval(load, 15000);
-
+    const runner = async () => {
+      if (cancelled) return;
+      await load();
+    };
+    runner();
+    const intervalId = window.setInterval(runner, 15000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
   }, []);
 
-  const exposure = useMemo(() => {
+  const exposureUsd = useMemo(() => {
     return Number(overview.metrics.current_exposure_pct ?? 0) * Number(overview.metrics.equity_usd ?? 0);
   }, [overview.metrics]);
 
-  function updateHyperliquidField(field, value) {
+  function updateField(section, field, value) {
     setSettingsDraft((current) => ({
       ...current,
-      hyperliquid: {
-        ...current.hyperliquid,
+      [section]: {
+        ...current[section],
         [field]: value,
       },
     }));
-  }
-
-  function updateTelegramField(field, value) {
-    setSettingsDraft((current) => ({
-      ...current,
-      telegram: {
-        ...current.telegram,
-        [field]: value,
-      },
-    }));
-  }
-
-  function updateTradingField(field, value) {
-    setSettingsDraft((current) => ({
-      ...current,
-      trading: {
-        ...current.trading,
-        [field]: value,
-      },
-    }));
-  }
-
-  async function toggleEngine() {
-    const nextPaused = !enginePaused;
-    const action = nextPaused ? "pause" : "resume";
-    setActionPending(true);
-    try {
-      await fetch(`${API_URL}/engine/${action}`, { method: "POST" });
-      setEnginePaused(nextPaused);
-      const response = await fetch(`${API_URL}/dashboard/overview`);
-      if (response.ok) {
-        const payload = await response.json();
-        setOverview(payload);
-        setSettingsDraft(payload.settings);
-      }
-    } catch {
-      setHealth("offline");
-    } finally {
-      setActionPending(false);
-    }
   }
 
   async function saveSettings() {
@@ -269,477 +490,523 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settingsDraft),
       });
-      if (!response.ok) {
-        throw new Error("settings update failed");
-      }
-      const overviewResponse = await fetch(`${API_URL}/dashboard/overview`);
-      if (!overviewResponse.ok) {
-        throw new Error("overview refresh failed");
-      }
-      const payload = await overviewResponse.json();
-      setOverview(payload);
-      setSettingsDraft(payload.settings);
-      setFlashMessage("Settings saved.");
+      if (!response.ok) throw new Error("settings update failed");
+      await load();
+      setFlashMessage(language === "id" ? "Pengaturan tersimpan." : "Settings saved.");
     } catch {
       setHealth("offline");
-      setFlashMessage("Failed to save settings.");
+      setFlashMessage(language === "id" ? "Gagal menyimpan pengaturan." : "Failed to save settings.");
     } finally {
       setSettingsPending(false);
+    }
+  }
+
+  async function triggerKillSwitch(endpoint) {
+    setKillPending(endpoint);
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, { method: "POST" });
+      const payload = await response.json();
+      await load();
+      setFlashMessage(payload.message ?? "Done.");
+    } catch {
+      setHealth("offline");
+      setFlashMessage(language === "id" ? "Aksi gagal dijalankan." : "Action failed.");
+    } finally {
+      setKillPending("");
     }
   }
 
   async function sendTelegramTest() {
     setTelegramTestPending(true);
     try {
-      const saveResponse = await fetch(`${API_URL}/settings`, {
+      await fetch(`${API_URL}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settingsDraft),
       });
-      if (!saveResponse.ok) {
-        throw new Error("settings update failed");
-      }
       const response = await fetch(`${API_URL}/settings/telegram/test`, { method: "POST" });
-      if (!response.ok) {
-        throw new Error("telegram test failed");
-      }
       const payload = await response.json();
-      const overviewResponse = await fetch(`${API_URL}/dashboard/overview`);
-      if (overviewResponse.ok) {
-        const overviewPayload = await overviewResponse.json();
-        setOverview(overviewPayload);
-        setSettingsDraft(overviewPayload.settings);
-      }
-      setFlashMessage(payload.sent ? "Telegram test sent." : "Telegram test not sent. Check bot settings.");
+      await load();
+      setFlashMessage(
+        payload.sent
+          ? language === "id"
+            ? "Tes Telegram terkirim."
+            : "Telegram test sent."
+          : language === "id"
+            ? "Tes Telegram tidak terkirim. Cek konfigurasi bot."
+            : "Telegram test not sent. Check bot settings.",
+      );
     } catch {
       setHealth("offline");
-      setFlashMessage("Telegram test failed.");
+      setFlashMessage(language === "id" ? "Tes Telegram gagal." : "Telegram test failed.");
     } finally {
       setTelegramTestPending(false);
     }
   }
 
+  const statusTone = health === "online" ? "emerald" : health === "checking" ? "amber" : "rose";
+
   return (
-    <main className="min-h-screen bg-[#11100e] text-stone-100">
-      <div className="border-b border-white/10 bg-stone-950/95">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-xl font-semibold">Trading Engine</h1>
-              <StatusPill status={enginePaused ? "paused" : "live"} />
-              <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
-                API {health}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
-                Universe top 10 liquid
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
-                {settingsDraft.trading.shadow_mode ? "Execution shadow" : "Execution live"}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
-                Migration {overview.migration_ok ? "ok" : "pending"}
-              </span>
+    <main className="min-h-screen bg-[#020617] text-slate-100">
+      <div className="border-b border-white/10 bg-slate-950/80 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold text-white">{t.title}</h1>
+                <StatusChip label={health === "online" ? t.apiOnline : health === "offline" ? t.apiOffline : "Checking"} tone={statusTone} />
+                <StatusChip
+                  label={overview.migration_ok ? t.migrationOk : t.migrationPending}
+                  tone={overview.migration_ok ? "cyan" : "amber"}
+                />
+                <StatusChip label={overview.metrics.network ?? settingsDraft.hyperliquid.network} tone="slate" />
+                <StatusChip label={settingsDraft.trading.shadow_mode ? t.executionShadow : t.executionLive} tone="slate" />
+                <StatusChip label={t.topUniverse} tone="slate" />
+              </div>
+              <p className="mt-2 max-w-3xl text-sm text-slate-400">{t.subtitle}</p>
+              {overview.last_error ? <p className="mt-2 text-sm text-rose-300">Runtime error: {overview.last_error}</p> : null}
+              {overview.migration_error ? <p className="mt-1 text-sm text-amber-300">Migration: {overview.migration_error}</p> : null}
+              {flashMessage ? <p className="mt-2 text-sm text-cyan-200">{flashMessage}</p> : null}
             </div>
-            <p className="mt-1 text-sm text-stone-400">
-              Hyperliquid funding, positioning, order flow, cross-exchange alignment, dynamic risk, and Telegram alerts.
-            </p>
-            {overview.last_error ? <p className="mt-2 text-sm text-rose-300">Runtime error: {overview.last_error}</p> : null}
-            {overview.migration_error ? <p className="mt-1 text-sm text-amber-300">Migration warning: {overview.migration_error}</p> : null}
-            {flashMessage ? <p className="mt-1 text-sm text-cyan-200">{flashMessage}</p> : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              className="rounded-md border border-white/10 bg-stone-900 px-4 py-2 text-sm text-stone-200 hover:bg-stone-800"
-              type="button"
-              onClick={() => updateTradingField("reduce_only_mode", !settingsDraft.trading.reduce_only_mode)}
-            >
-              {settingsDraft.trading.reduce_only_mode ? "Reduce Only On" : "Reduce Only Off"}
-            </button>
-            <button
-              className={classNames(
-                "rounded-md px-4 py-2 text-sm font-semibold",
-                actionPending && "cursor-wait opacity-70",
-                enginePaused
-                  ? "bg-emerald-300 text-stone-950 hover:bg-emerald-200"
-                  : "bg-amber-300 text-stone-950 hover:bg-amber-200",
-              )}
-              type="button"
-              disabled={actionPending}
-              onClick={toggleEngine}
-            >
-              {actionPending ? "Working" : enginePaused ? "Resume Engine" : "Pause Engine"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => updateField("trading", "reduce_only_mode", !settingsDraft.trading.reduce_only_mode)}
+                className="rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+              >
+                {settingsDraft.trading.reduce_only_mode ? t.reduceOnlyOn : t.reduceOnlyOff}
+              </button>
+              <button
+                type="button"
+                onClick={() => triggerKillSwitch("/engine/cancel-all")}
+                disabled={killPending === "/engine/cancel-all"}
+                className="rounded-xl bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-200 disabled:opacity-70"
+              >
+                {killPending === "/engine/cancel-all" ? "..." : t.cancelAll}
+              </button>
+              <button
+                type="button"
+                onClick={() => triggerKillSwitch("/engine/flatten-all")}
+                disabled={killPending === "/engine/flatten-all"}
+                className="rounded-xl bg-rose-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-rose-200 disabled:opacity-70"
+              >
+                {killPending === "/engine/flatten-all" ? "..." : t.flattenAll}
+              </button>
+              <button
+                type="button"
+                onClick={() => fetch(`${API_URL}/engine/refresh`, { method: "POST" }).then(load)}
+                className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-300/20"
+              >
+                {t.refreshNow}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-12">
-        <section className="grid gap-4 lg:col-span-12 lg:grid-cols-4">
-          <Metric label="Equity" value={formatUsd(overview.metrics.equity_usd)} detail="Engine account baseline" />
-          <Metric
-            label="Exposure"
-            value={formatUsd(exposure)}
-            detail={`${formatPct(overview.metrics.current_exposure_pct)} of max allocation`}
-            tone="warn"
+        <section className="grid gap-4 lg:col-span-12 lg:grid-cols-6">
+          <MetricCard label={t.metrics.equity} value={formatUsd(overview.metrics.equity_usd)} detail={t.liveAccount} accent="cyan" />
+          <MetricCard label={t.metrics.exposure} value={formatUsd(exposureUsd)} detail={formatPct(overview.metrics.current_exposure_pct)} accent="amber" />
+          <MetricCard
+            label={t.metrics.withdrawable}
+            value={formatUsd(overview.metrics.withdrawable_usd)}
+            detail={`${formatPct(overview.metrics.max_exposure_pct)} cap`}
+            accent="emerald"
           />
-          <Metric
-            label="Daily PnL"
-            value={formatUsd(overview.metrics.daily_pnl_usd)}
-            detail="Drawdown stop at configured threshold"
-            tone={Number(overview.metrics.daily_pnl_usd ?? 0) >= 0 ? "good" : "bad"}
+          <MetricCard
+            label={t.metrics.dailyPnl}
+            value={formatUsd(overview.metrics.daily_pnl_usd, 2)}
+            detail={`${formatPct(overview.metrics.daily_drawdown_stop_pct)} stop`}
+            accent={Number(overview.metrics.daily_pnl_usd ?? 0) >= 0 ? "emerald" : "rose"}
           />
-          <Metric
-            label="Open Risk"
-            value={formatPct(overview.metrics.open_risk_pct)}
-            detail={`Across ${overview.orders.length} queued trades`}
-            tone="neutral"
+          <MetricCard label={t.metrics.signals} value={String(overview.metrics.signals_count ?? 0)} detail={t.runtimeStatus} accent="cyan" />
+          <MetricCard
+            label={t.metrics.livePositions}
+            value={String(overview.metrics.positions_count ?? 0)}
+            detail={`${overview.metrics.open_orders_count ?? 0} open orders`}
+            accent="amber"
           />
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-zinc-950/80 shadow-glow lg:col-span-8">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <h2 className="font-semibold">Funding Signal Board</h2>
-            <span className="font-mono text-xs text-stone-500">thresholds 0.70 / 0.85</span>
-          </div>
-          <div className="overflow-x-auto">
+        <Panel title={t.sections.signals} className="lg:col-span-8" description="Thresholds 0.78 / 0.90">
+          <TableWrap>
             <table className="min-w-full text-left text-sm">
-              <thead className="text-xs uppercase text-stone-500">
+              <thead className="text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
-                  {["Symbol", "Funding", "Predicted", "OI Delta", "CVD", "Alignment", "Signal", "Strength"].map(
-                    (head) => (
-                      <th className="px-4 py-3 font-medium" key={head}>
-                        {head}
-                      </th>
-                    ),
-                  )}
+                  {[t.table.symbol, t.table.funding, t.table.predicted, t.table.oi, t.table.crowd, t.table.cvd, t.table.signal, t.table.strength].map((head) => (
+                    <th className="px-4 py-3 font-medium" key={head}>
+                      {head}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
-                {overview.signals.length > 0 ? (
+                {overview.signals.length ? (
                   overview.signals.map((row) => (
-                    <tr className="hover:bg-white/[0.03]" key={row.symbol}>
-                      <td className="px-4 py-4 font-semibold">{row.symbol}</td>
-                      <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.funding, 3)}</td>
-                      <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.predicted_funding, 3)}</td>
-                      <td className="px-4 py-4 font-mono text-stone-300">{formatPct(row.oi_delta)}</td>
-                      <td className="px-4 py-4 font-mono text-stone-300">{formatUsd(row.cvd)}</td>
-                      <td className="px-4 py-4 font-mono text-stone-300">{Math.round((row.alignment ?? 0) * 100)}</td>
+                    <tr key={row.symbol} className="hover:bg-white/[0.03]">
+                      <td className="px-4 py-4 font-semibold text-white">{row.symbol}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatPct(row.funding, 3)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatPct(row.predicted_funding, 3)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatPct(row.oi_delta)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatPct(row.long_short_ratio)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatUsd(row.cvd_delta, 0)}</td>
                       <td className="px-4 py-4">
-                        <SignalBadge value={`${row.strategy} ${row.side}`.toUpperCase()} />
+                        <span
+                          className={classNames(
+                            "rounded-lg px-2 py-1 text-xs font-semibold",
+                            row.side === "long" ? "bg-emerald-400/10 text-emerald-200" : "bg-rose-400/10 text-rose-200",
+                          )}
+                        >
+                          {`${row.strategy} ${row.side}`.toUpperCase()}
+                        </span>
                       </td>
                       <td className="px-4 py-4">
-                        <StrengthBar value={Number(row.strength ?? 0)} />
+                        <StrengthCell value={row.strength} />
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td className="px-4 py-6 text-sm text-stone-500" colSpan={8}>
-                      No qualified trades right now. Engine is still tracking the top liquid Hyperliquid markets.
+                    <td className="px-4 py-6 text-sm text-slate-500" colSpan={8}>
+                      {t.emptySignals}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
-        </section>
+          </TableWrap>
+        </Panel>
 
-        <aside className="grid gap-5 lg:col-span-4">
-          <section className="rounded-lg border border-white/10 bg-zinc-950/80 p-4 shadow-glow">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Risk Guard</h2>
-              <StatusPill status="live" />
-            </div>
-            <div className="mt-5 space-y-4">
-              {[
-                ["Max exposure", formatPct(overview.metrics.max_exposure_pct), "w-7/12", "bg-cyan-300"],
-                [`Concurrent positions`, `${overview.orders.length} / ${overview.metrics.max_concurrent_positions ?? 6}`, "w-4/12", "bg-emerald-300"],
-                [
-                  "Daily drawdown",
-                  `${formatPct(Math.abs((overview.metrics.daily_pnl_usd ?? 0) / (overview.metrics.equity_usd ?? 1)))} / ${formatPct(overview.metrics.daily_drawdown_stop_pct)}`,
-                  "w-1/12",
-                  "bg-amber-300",
-                ],
-                ["Dynamic risk", `${formatPct(settingsDraft.trading.min_risk_pct)} to ${formatPct(settingsDraft.trading.max_risk_pct)}`, "w-3/12", "bg-violet-300"],
-                ["Cooldown", `${settingsDraft.trading.execution_cooldown_seconds ?? 300}s`, "w-5/12", "bg-sky-300"],
-              ].map(([label, value, width, color]) => (
-                <div key={label}>
-                  <div className="mb-2 flex justify-between text-sm">
-                    <span className="text-stone-400">{label}</span>
-                    <span className="font-mono text-stone-200">{value}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-stone-800">
-                    <div className={classNames("h-2 rounded-full", width, color)} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-white/10 bg-zinc-950/80 p-4 shadow-glow">
-            <h2 className="font-semibold">Execution Queue</h2>
-            <div className="mt-4 space-y-3">
-              {overview.orders.map((order) => (
-                <div className="rounded-md border border-white/10 bg-stone-950 p-3" key={`${order.symbol}-${order.price}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">{order.symbol}</span>
-                    <span className="rounded bg-stone-800 px-2 py-1 text-xs text-stone-300">{order.status}</span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-stone-400">
-                    <span>{order.side}</span>
-                    <span>{order.type}</span>
-                    <span className="text-right font-mono text-stone-200">{formatUsd(order.price)}</span>
-                  </div>
-                  <div className="mt-2 text-xs text-stone-500">{order.message ?? "waiting for execution"}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
-
-        <section className="rounded-lg border border-white/10 bg-zinc-950/80 shadow-glow lg:col-span-12">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <h2 className="font-semibold">Settings</h2>
-            <div className="flex items-center gap-2">
-              <button
-                className={classNames(
-                  "rounded-md px-4 py-2 text-sm font-semibold",
-                  telegramTestPending ? "bg-stone-700 text-stone-300" : "bg-emerald-300 text-stone-950 hover:bg-emerald-200",
-                )}
-                disabled={telegramTestPending}
-                onClick={sendTelegramTest}
-                type="button"
-              >
-                {telegramTestPending ? "Sending" : "Send Telegram Test"}
-              </button>
-              <button
-                className={classNames(
-                  "rounded-md px-4 py-2 text-sm font-semibold",
-                  settingsPending ? "bg-stone-700 text-stone-300" : "bg-cyan-300 text-stone-950 hover:bg-cyan-200",
-                )}
-                disabled={settingsPending}
-                onClick={saveSettings}
-                type="button"
-              >
-                {settingsPending ? "Saving" : "Save Settings"}
-              </button>
-            </div>
-          </div>
-
-          <div className="grid gap-5 p-4 lg:grid-cols-3">
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold uppercase text-stone-400">Hyperliquid</h3>
-              <Input
-                label="Account Address"
-                onChange={(event) => updateHyperliquidField("account_address", event.target.value)}
-                placeholder="0x..."
-                value={settingsDraft.hyperliquid.account_address ?? ""}
-              />
-              <Input
-                label="Secret Key"
-                onChange={(event) => updateHyperliquidField("secret_key", event.target.value)}
-                placeholder={settingsDraft.hyperliquid.has_secret_key ? "Stored secret retained if left blank" : "Enter secret key"}
-                value={settingsDraft.hyperliquid.secret_key ?? ""}
-              />
-              <Input
-                label="API URL"
-                onChange={(event) => updateHyperliquidField("api_url", event.target.value)}
-                value={settingsDraft.hyperliquid.api_url ?? ""}
-              />
-              <Input
-                label="WebSocket URL"
-                onChange={(event) => updateHyperliquidField("ws_url", event.target.value)}
-                value={settingsDraft.hyperliquid.ws_url ?? ""}
-              />
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold uppercase text-stone-400">Trading Controls</h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <Input
-                  label="Maximum Exposure"
-                  onChange={(event) => updateTradingField("max_total_exposure_pct", Number(event.target.value))}
-                  step="0.01"
-                  type="number"
-                  value={settingsDraft.trading.max_total_exposure_pct ?? 0}
-                />
-                <Input
-                  label="Max Concurrent Positions"
-                  onChange={(event) => updateTradingField("max_concurrent_positions", Number(event.target.value))}
-                  step="1"
-                  type="number"
-                  value={settingsDraft.trading.max_concurrent_positions ?? 0}
-                />
-                <Input
-                  label="Daily Drawdown Stop"
-                  onChange={(event) => updateTradingField("daily_drawdown_stop_pct", Number(event.target.value))}
-                  step="0.001"
-                  type="number"
-                  value={settingsDraft.trading.daily_drawdown_stop_pct ?? 0}
-                />
-                <Input
-                  label="Min Risk Per Trade"
-                  onChange={(event) => updateTradingField("min_risk_pct", Number(event.target.value))}
-                  step="0.0005"
-                  type="number"
-                  value={settingsDraft.trading.min_risk_pct ?? 0}
-                />
-                <Input
-                  label="Max Risk Per Trade"
-                  onChange={(event) => updateTradingField("max_risk_pct", Number(event.target.value))}
-                  step="0.0005"
-                  type="number"
-                  value={settingsDraft.trading.max_risk_pct ?? 0}
-                />
-                <Input
-                  label="Max Spread Bps"
-                  onChange={(event) => updateTradingField("max_spread_bps", Number(event.target.value))}
-                  step="0.1"
-                  type="number"
-                  value={settingsDraft.trading.max_spread_bps ?? 0}
-                />
-                <Input
-                  label="Top Markets"
-                  onChange={(event) => updateTradingField("top_n_markets", Number(event.target.value))}
-                  step="1"
-                  type="number"
-                  value={settingsDraft.trading.top_n_markets ?? 10}
-                />
-                <Input
-                  label="Refresh Seconds"
-                  onChange={(event) => updateTradingField("refresh_seconds", Number(event.target.value))}
-                  step="1"
-                  type="number"
-                  value={settingsDraft.trading.refresh_seconds ?? 60}
-                />
-                <Input
-                  label="Execution Cooldown"
-                  onChange={(event) => updateTradingField("execution_cooldown_seconds", Number(event.target.value))}
-                  step="1"
-                  type="number"
-                  value={settingsDraft.trading.execution_cooldown_seconds ?? 300}
-                />
-                <Input
-                  label="ATR Stop Min"
-                  onChange={(event) => updateTradingField("atr_stop_min", Number(event.target.value))}
-                  step="0.1"
-                  type="number"
-                  value={settingsDraft.trading.atr_stop_min ?? 1.2}
-                />
-                <Input
-                  label="ATR Stop Max"
-                  onChange={(event) => updateTradingField("atr_stop_max", Number(event.target.value))}
-                  step="0.1"
-                  type="number"
-                  value={settingsDraft.trading.atr_stop_max ?? 2}
-                />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Toggle
-                  checked={Boolean(settingsDraft.trading.shadow_mode)}
-                  label="Shadow Mode"
-                  onChange={() => updateTradingField("shadow_mode", !settingsDraft.trading.shadow_mode)}
-                />
-                <Toggle
-                  checked={Boolean(settingsDraft.trading.reduce_only_mode)}
-                  label="Reduce Only Mode"
-                  onChange={() => updateTradingField("reduce_only_mode", !settingsDraft.trading.reduce_only_mode)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold uppercase text-stone-400">Telegram Bot</h3>
+        <Panel title={t.sections.controls} className="lg:col-span-4" description={t.telegramStatus}>
+          <div className="space-y-4 p-5">
+            <div className="grid gap-3">
               <Toggle
+                label={t.labels.shadowMode}
+                detail={t.shadowExplained}
+                checked={Boolean(settingsDraft.trading.shadow_mode)}
+                onChange={() => updateField("trading", "shadow_mode", !settingsDraft.trading.shadow_mode)}
+              />
+              <Toggle
+                label={t.labels.reduceOnly}
+                detail={t.reduceExplained}
+                checked={Boolean(settingsDraft.trading.reduce_only_mode)}
+                onChange={() => updateField("trading", "reduce_only_mode", !settingsDraft.trading.reduce_only_mode)}
+              />
+            </div>
+            <div className="rounded-xl border border-white/10 bg-slate-950 p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">{t.labels.network}</span>
+                <span className="font-medium text-white">{overview.metrics.network ?? settingsDraft.hyperliquid.network}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-slate-400">{t.metrics.livePositions}</span>
+                <span className="font-medium text-white">{overview.metrics.positions_count ?? 0}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-slate-400">{t.sections.openOrders}</span>
+                <span className="font-medium text-white">{overview.metrics.open_orders_count ?? 0}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-slate-400">{t.metrics.signals}</span>
+                <span className="font-medium text-white">{overview.metrics.signals_count ?? 0}</span>
+              </div>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel title={t.sections.positions} className="lg:col-span-6">
+          <TableWrap>
+            <table className="min-w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                <tr>
+                  {[t.table.symbol, t.table.side, t.table.size, t.table.notional, t.table.entry, t.table.mark, t.table.pnl, t.table.leverage].map((head) => (
+                    <th className="px-4 py-3 font-medium" key={head}>
+                      {head}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {overview.positions.length ? (
+                  overview.positions.map((row) => (
+                    <tr key={`${row.symbol}-${row.side}`} className="hover:bg-white/[0.03]">
+                      <td className="px-4 py-4 font-semibold text-white">{row.symbol}</td>
+                      <td className="px-4 py-4 capitalize text-slate-300">{row.side}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{Number(row.size ?? 0).toFixed(4)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatUsd(row.notional_usd)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatUsd(row.entry_price, 2)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatUsd(row.mark_price, 2)}</td>
+                      <td className={classNames("px-4 py-4 font-mono", Number(row.unrealized_pnl ?? 0) >= 0 ? "text-emerald-200" : "text-rose-200")}>
+                        {formatUsd(row.unrealized_pnl, 2)}
+                      </td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{Number(row.leverage ?? 0).toFixed(1)}x</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="px-4 py-6 text-sm text-slate-500" colSpan={8}>
+                      {t.emptyPositions}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableWrap>
+        </Panel>
+
+        <Panel title={t.sections.openOrders} className="lg:col-span-6">
+          <TableWrap>
+            <table className="min-w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                <tr>
+                  {[t.table.symbol, t.table.side, t.table.type, t.table.price, t.table.size, t.table.remaining, t.table.status, t.table.time].map((head) => (
+                    <th className="px-4 py-3 font-medium" key={head}>
+                      {head}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {overview.open_orders.length ? (
+                  overview.open_orders.map((row) => (
+                    <tr key={row.oid} className="hover:bg-white/[0.03]">
+                      <td className="px-4 py-4 font-semibold text-white">{row.symbol}</td>
+                      <td className="px-4 py-4 capitalize text-slate-300">{row.side}</td>
+                      <td className="px-4 py-4 text-slate-300">{row.order_type}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatUsd(row.limit_price, 2)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{Number(row.size ?? 0).toFixed(4)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{Number(row.remaining_size ?? 0).toFixed(4)}</td>
+                      <td className="px-4 py-4 text-slate-300">{row.status}</td>
+                      <td className="px-4 py-4 text-slate-400">{formatTs(row.timestamp_ms)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="px-4 py-6 text-sm text-slate-500" colSpan={8}>
+                      {t.emptyOrders}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableWrap>
+        </Panel>
+
+        <Panel title={t.sections.fills} className="lg:col-span-8">
+          <TableWrap>
+            <table className="min-w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                <tr>
+                  {[t.table.symbol, t.table.side, t.table.direction, t.table.price, t.table.size, t.table.pnl, t.table.fee, t.table.time].map((head) => (
+                    <th className="px-4 py-3 font-medium" key={head}>
+                      {head}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {overview.fills.length ? (
+                  overview.fills.map((row, index) => (
+                    <tr key={`${row.symbol}-${row.timestamp_ms}-${index}`} className="hover:bg-white/[0.03]">
+                      <td className="px-4 py-4 font-semibold text-white">{row.symbol}</td>
+                      <td className="px-4 py-4 capitalize text-slate-300">{row.side}</td>
+                      <td className="px-4 py-4 text-slate-300">{row.direction}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatUsd(row.price, 2)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{Number(row.size ?? 0).toFixed(4)}</td>
+                      <td className={classNames("px-4 py-4 font-mono", Number(row.closed_pnl ?? 0) >= 0 ? "text-emerald-200" : "text-rose-200")}>
+                        {formatUsd(row.closed_pnl, 2)}
+                      </td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatUsd(row.fee, 4)}</td>
+                      <td className="px-4 py-4 text-slate-400">{formatTs(row.timestamp_ms)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="px-4 py-6 text-sm text-slate-500" colSpan={8}>
+                      {t.emptyFills}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableWrap>
+        </Panel>
+
+        <Panel title={t.sections.activity} className="lg:col-span-4">
+          <div className="space-y-2 p-5">
+            {overview.activity.length ? (
+              overview.activity.map((row, index) => (
+                <div key={`${row}-${index}`} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-3 text-sm text-slate-300">
+                  {row}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500">{t.emptyActivity}</p>
+            )}
+          </div>
+        </Panel>
+
+        <Panel
+          title={t.sections.settings}
+          className="lg:col-span-12"
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={sendTelegramTest}
+                disabled={telegramTestPending}
+                className="rounded-xl bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-200 disabled:opacity-70"
+              >
+                {telegramTestPending ? t.sending : t.sendTelegramTest}
+              </button>
+              <button
+                type="button"
+                onClick={saveSettings}
+                disabled={settingsPending}
+                className="rounded-xl bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200 disabled:opacity-70"
+              >
+                {settingsPending ? t.saving : t.saveSettings}
+              </button>
+            </div>
+          }
+        >
+          <div className="grid gap-5 p-5 lg:grid-cols-4">
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-400">App</h3>
+              <Select
+                label={t.labels.language}
+                value={settingsDraft.app.language ?? "en"}
+                onChange={(event) => updateField("app", "language", event.target.value)}
+                options={[
+                  { label: "English", value: "en" },
+                  { label: "Indonesia", value: "id" },
+                ]}
+              />
+              <Select
+                label={t.labels.network}
+                value={settingsDraft.hyperliquid.network ?? "mainnet"}
+                onChange={(event) => updateField("hyperliquid", "network", event.target.value)}
+                options={[
+                  { label: "Mainnet", value: "mainnet" },
+                  { label: "Testnet", value: "testnet" },
+                ]}
+              />
+              <Input
+                label={t.labels.accountAddress}
+                value={settingsDraft.hyperliquid.account_address ?? ""}
+                onChange={(event) => updateField("hyperliquid", "account_address", event.target.value)}
+                placeholder="0x..."
+              />
+              <Input
+                label={t.labels.secretKey}
+                value={settingsDraft.hyperliquid.secret_key ?? ""}
+                onChange={(event) => updateField("hyperliquid", "secret_key", event.target.value)}
+                placeholder={settingsDraft.hyperliquid.has_secret_key ? "Stored secret retained if left blank" : "Enter secret key"}
+              />
+              <Input
+                label={t.labels.apiUrl}
+                value={settingsDraft.hyperliquid.api_url ?? ""}
+                onChange={(event) => updateField("hyperliquid", "api_url", event.target.value)}
+              />
+              <Input
+                label={t.labels.wsUrl}
+                value={settingsDraft.hyperliquid.ws_url ?? ""}
+                onChange={(event) => updateField("hyperliquid", "ws_url", event.target.value)}
+              />
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-400">Risk</h3>
+              <div className="grid gap-4">
+                <Input label={t.labels.maxExposure} type="number" step="0.01" value={settingsDraft.trading.max_total_exposure_pct ?? 0} onChange={(event) => updateField("trading", "max_total_exposure_pct", Number(event.target.value))} />
+                <Input label={t.labels.maxPositions} type="number" step="1" value={settingsDraft.trading.max_concurrent_positions ?? 0} onChange={(event) => updateField("trading", "max_concurrent_positions", Number(event.target.value))} />
+                <Input label={t.labels.drawdown} type="number" step="0.001" value={settingsDraft.trading.daily_drawdown_stop_pct ?? 0} onChange={(event) => updateField("trading", "daily_drawdown_stop_pct", Number(event.target.value))} />
+                <Input label={t.labels.minRisk} type="number" step="0.0005" value={settingsDraft.trading.min_risk_pct ?? 0} onChange={(event) => updateField("trading", "min_risk_pct", Number(event.target.value))} />
+                <Input label={t.labels.maxRisk} type="number" step="0.0005" value={settingsDraft.trading.max_risk_pct ?? 0} onChange={(event) => updateField("trading", "max_risk_pct", Number(event.target.value))} />
+                <Input label={t.labels.maxSpread} type="number" step="0.1" value={settingsDraft.trading.max_spread_bps ?? 0} onChange={(event) => updateField("trading", "max_spread_bps", Number(event.target.value))} />
+                <Input label={t.labels.topMarkets} type="number" step="1" value={settingsDraft.trading.top_n_markets ?? 50} onChange={(event) => updateField("trading", "top_n_markets", Number(event.target.value))} />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-400">Execution</h3>
+              <div className="grid gap-4">
+                <Input label={t.labels.refresh} type="number" step="1" value={settingsDraft.trading.refresh_seconds ?? 0} onChange={(event) => updateField("trading", "refresh_seconds", Number(event.target.value))} />
+                <Input label={t.labels.cooldown} type="number" step="1" value={settingsDraft.trading.execution_cooldown_seconds ?? 0} onChange={(event) => updateField("trading", "execution_cooldown_seconds", Number(event.target.value))} />
+                <Input label={t.labels.atrMin} type="number" step="0.1" value={settingsDraft.trading.atr_stop_min ?? 0} onChange={(event) => updateField("trading", "atr_stop_min", Number(event.target.value))} />
+                <Input label={t.labels.atrMax} type="number" step="0.1" value={settingsDraft.trading.atr_stop_max ?? 0} onChange={(event) => updateField("trading", "atr_stop_max", Number(event.target.value))} />
+                <Input label={t.labels.minLiquidity} type="number" step="0.01" value={settingsDraft.trading.min_liquidity_score ?? 0} onChange={(event) => updateField("trading", "min_liquidity_score", Number(event.target.value))} />
+                <Input label={t.labels.minSignal} type="number" step="0.01" value={settingsDraft.trading.min_signal_strength ?? 0} onChange={(event) => updateField("trading", "min_signal_strength", Number(event.target.value))} />
+                <Input label={t.labels.aggressiveSignal} type="number" step="0.01" value={settingsDraft.trading.aggressive_signal_strength ?? 0} onChange={(event) => updateField("trading", "aggressive_signal_strength", Number(event.target.value))} />
+              </div>
+              <div className="grid gap-3">
+                <Toggle label={t.labels.shadowMode} checked={Boolean(settingsDraft.trading.shadow_mode)} onChange={() => updateField("trading", "shadow_mode", !settingsDraft.trading.shadow_mode)} detail={t.shadowExplained} />
+                <Toggle label={t.labels.reduceOnly} checked={Boolean(settingsDraft.trading.reduce_only_mode)} onChange={() => updateField("trading", "reduce_only_mode", !settingsDraft.trading.reduce_only_mode)} detail={t.reduceExplained} />
+                <Toggle label={t.labels.realTradeStream} checked={Boolean(settingsDraft.trading.use_real_trade_stream)} onChange={() => updateField("trading", "use_real_trade_stream", !settingsDraft.trading.use_real_trade_stream)} />
+                <Toggle label={t.labels.externalSentiment} checked={Boolean(settingsDraft.trading.use_external_sentiment)} onChange={() => updateField("trading", "use_external_sentiment", !settingsDraft.trading.use_external_sentiment)} />
+                <Toggle label={t.labels.trendAlignment} checked={Boolean(settingsDraft.trading.require_trend_alignment)} onChange={() => updateField("trading", "require_trend_alignment", !settingsDraft.trading.require_trend_alignment)} />
+                <Toggle label={t.labels.crossAlignment} checked={Boolean(settingsDraft.trading.require_cross_exchange_alignment)} onChange={() => updateField("trading", "require_cross_exchange_alignment", !settingsDraft.trading.require_cross_exchange_alignment)} />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-400">Telegram</h3>
+              <Toggle
+                label={t.labels.telegramEnabled}
                 checked={Boolean(settingsDraft.telegram.enabled)}
-                label="Enable Telegram Notifications"
-                onChange={() => updateTelegramField("enabled", !settingsDraft.telegram.enabled)}
+                onChange={() => updateField("telegram", "enabled", !settingsDraft.telegram.enabled)}
               />
               <Input
-                label="Bot Token"
-                onChange={(event) => updateTelegramField("bot_token", event.target.value)}
-                placeholder={settingsDraft.telegram.has_bot_token ? "Stored token retained if left blank" : "123456:ABC..."}
+                label={t.labels.botToken}
                 value={settingsDraft.telegram.bot_token ?? ""}
+                onChange={(event) => updateField("telegram", "bot_token", event.target.value)}
+                placeholder={settingsDraft.telegram.has_bot_token ? "Stored token retained if left blank" : "123456:ABC..."}
               />
+              <Input label={t.labels.chatId} value={settingsDraft.telegram.chat_id ?? ""} onChange={(event) => updateField("telegram", "chat_id", event.target.value)} />
               <Input
-                label="Chat ID"
-                onChange={(event) => updateTelegramField("chat_id", event.target.value)}
-                placeholder="123456789"
-                value={settingsDraft.telegram.chat_id ?? ""}
-              />
-              <Input
-                label="Summary Interval Minutes"
-                onChange={(event) => updateTelegramField("summary_interval_minutes", Number(event.target.value))}
-                step="1"
+                label={t.labels.summaryInterval}
                 type="number"
+                step="1"
                 value={settingsDraft.telegram.summary_interval_minutes ?? 60}
+                onChange={(event) => updateField("telegram", "summary_interval_minutes", Number(event.target.value))}
               />
               <div className="grid gap-3">
-                <Toggle
-                  checked={Boolean(settingsDraft.telegram.notify_api_status)}
-                  label="Notify API Status"
-                  onChange={() => updateTelegramField("notify_api_status", !settingsDraft.telegram.notify_api_status)}
-                />
-                <Toggle
-                  checked={Boolean(settingsDraft.telegram.notify_engine_actions)}
-                  label="Notify Engine Actions"
-                  onChange={() => updateTelegramField("notify_engine_actions", !settingsDraft.telegram.notify_engine_actions)}
-                />
-                <Toggle
-                  checked={Boolean(settingsDraft.telegram.notify_trade_activity)}
-                  label="Notify Trading Activity"
-                  onChange={() => updateTelegramField("notify_trade_activity", !settingsDraft.telegram.notify_trade_activity)}
-                />
-                <Toggle
-                  checked={Boolean(settingsDraft.telegram.notify_pnl_summary)}
-                  label="Notify PnL Summary"
-                  onChange={() => updateTelegramField("notify_pnl_summary", !settingsDraft.telegram.notify_pnl_summary)}
-                />
-                <Toggle
-                  checked={Boolean(settingsDraft.telegram.notify_errors)}
-                  label="Notify Errors"
-                  onChange={() => updateTelegramField("notify_errors", !settingsDraft.telegram.notify_errors)}
-                />
+                <Toggle label={t.labels.notifyApi} checked={Boolean(settingsDraft.telegram.notify_api_status)} onChange={() => updateField("telegram", "notify_api_status", !settingsDraft.telegram.notify_api_status)} />
+                <Toggle label={t.labels.notifyActions} checked={Boolean(settingsDraft.telegram.notify_engine_actions)} onChange={() => updateField("telegram", "notify_engine_actions", !settingsDraft.telegram.notify_engine_actions)} />
+                <Toggle label={t.labels.notifyTrades} checked={Boolean(settingsDraft.telegram.notify_trade_activity)} onChange={() => updateField("telegram", "notify_trade_activity", !settingsDraft.telegram.notify_trade_activity)} />
+                <Toggle label={t.labels.notifyPnl} checked={Boolean(settingsDraft.telegram.notify_pnl_summary)} onChange={() => updateField("telegram", "notify_pnl_summary", !settingsDraft.telegram.notify_pnl_summary)} />
+                <Toggle label={t.labels.notifyErrors} checked={Boolean(settingsDraft.telegram.notify_errors)} onChange={() => updateField("telegram", "notify_errors", !settingsDraft.telegram.notify_errors)} />
               </div>
             </div>
           </div>
-        </section>
+        </Panel>
 
-        <section className="rounded-lg border border-white/10 bg-zinc-950/80 shadow-glow lg:col-span-12">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <h2 className="font-semibold">Top 10 Liquid Universe</h2>
-            <span className="text-xs text-stone-500">Live selection for engine analysis</span>
-          </div>
-          <div className="grid gap-3 p-4 md:grid-cols-2">
-            {overview.universe.map((position) => (
-              <div className="rounded-lg border border-white/10 bg-stone-950 p-4" key={position.symbol}>
-                <div className="flex items-start justify-between">
+        <Panel title={t.sections.universe} className="lg:col-span-12">
+          <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+            {overview.universe.map((row) => (
+              <div key={row.symbol} className="rounded-2xl border border-white/10 bg-slate-950 p-4">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-lg font-semibold">{position.symbol}</p>
-                    <p className="text-sm text-stone-500">Perpetual candidate</p>
+                    <p className="text-lg font-semibold text-white">{row.symbol}</p>
+                    <p className="text-sm text-slate-500">{t.topUniverse}</p>
                   </div>
-                  <span className="rounded-md bg-cyan-400/10 px-2 py-1 text-xs font-semibold text-cyan-200">
-                    {formatPct((position.spread_bps ?? 0) / 10000, 2)} spread
-                  </span>
+                  <StatusChip label={`${Number(row.spread_bps ?? 0).toFixed(2)} bps`} tone="slate" />
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-stone-500">24h volume</p>
-                    <p className="mt-1 font-mono">{formatUsd(position.volume_24h)}</p>
+                    <p className="text-slate-500">24h volume</p>
+                    <p className="mt-1 font-mono text-slate-200">{formatUsd(row.volume_24h)}</p>
                   </div>
                   <div>
-                    <p className="text-stone-500">Open interest</p>
-                    <p className="mt-1 font-mono">{formatUsd(position.open_interest_usd)}</p>
-                  </div>
-                  <div>
-                    <p className="text-stone-500">Spread</p>
-                    <p className="mt-1 font-mono">{Number(position.spread_bps ?? 0).toFixed(2)} bps</p>
+                    <p className="text-slate-500">Open interest</p>
+                    <p className="mt-1 font-mono text-slate-200">{formatUsd(row.open_interest_usd)}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </Panel>
       </div>
     </main>
   );

@@ -5,8 +5,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from trading_system.data.networks import apply_network_defaults
+
 
 class HyperliquidCredentials(BaseModel):
+    network: str = "mainnet"
     account_address: str = ""
     secret_key: str = ""
     api_url: str = "https://api.hyperliquid.xyz"
@@ -32,22 +35,35 @@ class TradingParameters(BaseModel):
     min_risk_pct: float = 0.0025
     max_risk_pct: float = 0.0075
     max_spread_bps: float = 5.0
-    top_n_markets: int = 10
+    top_n_markets: int = 50
     refresh_seconds: int = 60
     execution_cooldown_seconds: int = 300
     shadow_mode: bool = True
     reduce_only_mode: bool = False
     atr_stop_min: float = 1.2
     atr_stop_max: float = 2.0
+    use_real_trade_stream: bool = True
+    use_external_sentiment: bool = True
+    min_liquidity_score: float = 0.15
+    min_signal_strength: float = 0.78
+    aggressive_signal_strength: float = 0.90
+    require_trend_alignment: bool = True
+    require_cross_exchange_alignment: bool = True
+
+
+class AppPreferences(BaseModel):
+    language: str = "en"
 
 
 class UserSettings(BaseModel):
+    app: AppPreferences = Field(default_factory=AppPreferences)
     hyperliquid: HyperliquidCredentials = Field(default_factory=HyperliquidCredentials)
     telegram: TelegramSettings = Field(default_factory=TelegramSettings)
     trading: TradingParameters = Field(default_factory=TradingParameters)
 
 
 class UserSettingsUpdate(BaseModel):
+    app: AppPreferences | None = None
     hyperliquid: HyperliquidCredentials | None = None
     telegram: TelegramSettings | None = None
     trading: TradingParameters | None = None
@@ -67,8 +83,10 @@ class SettingsStore:
         if self.path.exists():
             payload = json.loads(self.path.read_text(encoding="utf-8"))
             self._settings = UserSettings.model_validate(payload)
+            self._settings.hyperliquid = apply_network_defaults(self._settings.hyperliquid)
             self.save()
         else:
+            self._settings.hyperliquid = apply_network_defaults(self._settings.hyperliquid)
             self.save()
         return self._settings
 
@@ -81,12 +99,14 @@ class SettingsStore:
 
     def update(self, update: UserSettingsUpdate) -> UserSettings:
         current = self._settings.model_copy(deep=True)
+        if update.app is not None:
+            current.app = update.app
         if update.hyperliquid is not None:
             current_hl = current.hyperliquid.model_dump()
             incoming_hl = update.hyperliquid.model_dump()
             if not incoming_hl.get("secret_key"):
                 incoming_hl["secret_key"] = current.hyperliquid.secret_key
-            current.hyperliquid = HyperliquidCredentials(**(current_hl | incoming_hl))
+            current.hyperliquid = apply_network_defaults(HyperliquidCredentials(**(current_hl | incoming_hl)))
         if update.telegram is not None:
             current_tg = current.telegram.model_dump()
             incoming_tg = update.telegram.model_dump()

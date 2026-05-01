@@ -36,6 +36,8 @@ class MarketFeatures:
     ma_fast: float
     ma_slow: float
     timestamp_ms: int
+    flow_imbalance: float = 0.5
+    trade_stream_fresh: bool = False
     size_decimals: int = 3
 
 

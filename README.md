@@ -1,190 +1,48 @@
-# Hyperliquid Funding Arbitrage Engine
+# Hyperliquid Trading Engine
 
-Async Python trading system skeleton for Hyperliquid perpetual futures using funding pressure, open interest, CVD, positioning skew, and cross-exchange predicted funding.
+Production-oriented Hyperliquid perpetual futures engine with:
 
-This repository is an implementation scaffold, not financial advice and not a turnkey profitable strategy.
+- top-50 liquidity universe
+- funding continuation + unwind logic
+- real Hyperliquid trade stream for CVD
+- live account positions, open orders, and fills
+- dynamic risk sizing
+- Telegram notifications
+- React + Tailwind operations dashboard
+- Hyperliquid mainnet and testnet support
 
-## Core Components
+This project is an execution scaffold for systematic trading. It is not financial advice.
 
-- `trading_system/data`: exchange ingestion adapters and top-10 liquidity universe selection.
-- `trading_system/features`: funding, OI, CVD, trend, ATR, and microstructure features.
-- `trading_system/signals`: continuation and mean-reversion scoring on funding, positioning, order flow, cross-exchange alignment, and trend.
-- `trading_system/risk`: position sizing and portfolio limits.
-- `trading_system/execution`: adaptive limit order planning and Hyperliquid execution adapter.
-- `trading_system/backtest`: historical replay broker and metrics.
-- `trading_system/app`: FastAPI control plane.
-- `frontend`: React + Tailwind trading dashboard.
-
-## Main Features
-
-- live top-10 market selection from Hyperliquid liquidity and volume
-- funding continuation and mean-reversion signal engine
-- dynamic risk sizing based on setup quality
-- shadow mode for paper execution with real market data
-- live order submission to Hyperliquid when shadow mode is disabled
-- reduce-only mode for defensive order handling
-- rolling OI history with `oi_zscore`
-- runtime settings persistence
-- Telegram bot notifications for engine status and trading activity
-- Docker deployment with healthchecks and automatic migration startup
-
-## Trading Logic
-
-The engine is designed around the top 10 Hyperliquid markets by liquidity and volume, not a fixed manual watchlist.
-
-Every market is scored from:
-
-- current funding rate
-- predicted next funding rate
-- rate persistence
-- funding microstructure momentum
-- CVD
-- long/short ratio
-- OI delta
-- OI absolute level relative to history
-- cross-exchange predicted funding alignment
-- ATR and MA trend context
-
-Continuation trades follow the crowded side only when funding, OI expansion, CVD, and trend all agree.
-Mean reversion trades fade the crowd only when funding is extreme, positioning is skewed, OI stops expanding, and CVD diverges.
-
-Risk is dynamic:
-
-- weak-valid setup: near minimum risk
-- strong confluence plus high liquidity: higher risk
-- mean reversion gets slightly less risk than continuation at the same conviction
-- high spread and portfolio constraints still veto trades
-
-## Live Runtime
-
-The API now maintains a live engine snapshot that:
-
-- fetches Hyperliquid market state from the official `info` endpoint
-- selects the top 10 liquid perpetuals
-- stores rolling open-interest history locally and computes `oi_zscore`
-- ranks trade candidates and produces a live dashboard payload
-
-Available endpoints:
-
-- `GET /dashboard/overview`
-- `POST /engine/refresh`
-- `POST /engine/pause`
-- `POST /engine/resume`
-- `GET /settings`
-- `PUT /settings`
-
-Dashboard settings now support:
-
-- Hyperliquid account address
-- Hyperliquid secret key
-- Telegram bot token and chat id
-- API and WebSocket URLs
-- maximum exposure
-- maximum concurrent positions
-- daily drawdown stop
-- min/max risk per trade
-- max spread filter
-- top market count
-- refresh interval
-- execution cooldown
-- shadow mode and reduce-only mode
-- Telegram notification toggles
-
-Live execution notes:
-
-- when `shadow_mode` is enabled, orders are ranked and staged but not sent
-- when `shadow_mode` is disabled and credentials are present, the runtime can submit live limit orders
-- submissions use a per-symbol cooldown to avoid duplicate orders every refresh cycle
-- size and price are rounded conservatively to Hyperliquid lot-size and price-precision rules
-
-## Settings Explained
-
-### `shadow_mode`
-
-`shadow_mode` means the engine does the full analysis, creates signals, sizes trades, and prepares orders, but does not actually send any order to Hyperliquid.
-
-Use this when:
-
-- validating signals
-- checking dashboard behavior
-- testing Telegram notifications
-- confirming settings before enabling live trading
-
-### `reduce_only_mode`
-
-`reduce_only_mode` means any live order sent by the engine is marked reduce-only, so it can only reduce or close exposure and cannot increase a position.
-
-Use this when:
-
-- managing exits only
-- running defensive mode after a problem
-- verifying execution plumbing without letting the bot build new exposure
-
-### `max_total_exposure_pct`
-
-Maximum notional exposure the bot is allowed to deploy relative to account equity.
-
-### `max_concurrent_positions`
-
-Caps how many separate markets can be active at once.
-
-### `daily_drawdown_stop_pct`
-
-Stops new risk-taking when the running daily loss breaches the configured threshold.
-
-### `min_risk_pct` and `max_risk_pct`
-
-The engine scales position risk between these bounds depending on conviction and liquidity quality.
-
-### `max_spread_bps`
-
-Markets wider than this spread are excluded from signal generation and execution.
-
-### `execution_cooldown_seconds`
-
-Prevents duplicate live submissions on the same symbol across repeated refresh cycles.
-
-### Telegram notifications
-
-You can configure:
-
-- API status notifications
-- engine actions like pause, resume, and settings updates
-- trade activity like submitted, blocked, or cooldown events
-- PnL and engine summary heartbeat
-- runtime errors
-
-The bot can send:
-
-- API online status
-- migration status
-- mode information such as shadow or live
-- pause/resume/settings update events
-- trade submission results
-- current exposure
-- daily PnL
-- tracked markets and signal count
-- top current signal
-- runtime errors
-
-Current note:
-
-- open interest and funding are live from Hyperliquid
-- top-10 universe selection is live from Hyperliquid
-- `oi_zscore` is computed from locally accumulated runtime history
-- CVD and long/short ratio remain derived proxies until the trade stream and external positioning sources are fully wired
+---
 
 ## Quick Start
 
+### Docker only
+
 ```bash
-python -m venv .venv
-. .venv/Scripts/activate
-pip install -e ".[dev]"
-pytest
-uvicorn trading_system.app.main:app --reload
+docker compose up --build
 ```
 
-## Tailwind Dashboard
+Open:
+
+- Dashboard: `http://localhost:8501`
+- API: `http://localhost:8000`
+
+If you want the production-style compose:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+```
+
+### Local dev
+
+Backend:
+
+```bash
+uvicorn trading_system.app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Frontend:
 
 ```bash
 cd frontend
@@ -192,45 +50,248 @@ npm install
 npm run dev
 ```
 
-In local development and GitHub Codespaces, the Vite dev server proxies `/api` to `http://127.0.0.1:8000` automatically.
-Set `VITE_API_URL` only if you want to override that behavior.
+---
 
-## Docker
+## Web App Features
+
+- **Live signal board**  
+  Funding, predicted funding, OI delta, real CVD delta, crowd ratio, and signal strength.
+
+- **Live account panels**  
+  Positions, open orders, recent fills, runtime activity.
+
+- **Kill switch controls**  
+  `Cancel all` and `Flatten all`.
+
+- **Execution controls**  
+  `shadow_mode`, `reduce_only_mode`, cooldown, spread filter, liquidity threshold, signal threshold.
+
+- **Network support**  
+  Switch between Hyperliquid `mainnet` and `testnet`.
+
+- **Telegram integration**  
+  Notifications for runtime state, trade activity, errors, and periodic summaries.
+
+- **Bilingual UI**  
+  English and Indonesian.
+
+---
+
+## Settings Explained
+
+### `shadow_mode`
+
+Engine analyzes markets, generates signals, sizes trades, and prepares execution, but does **not** send live orders.
+
+Use it for:
+
+- dry runs
+- verifying signal quality
+- testing Telegram
+- validating settings before going live
+
+### `reduce_only_mode`
+
+All live orders are sent as reduce-only. The engine can close or reduce exposure, but cannot increase a position.
+
+Use it for:
+
+- exit-only mode
+- emergency containment
+- execution verification with minimal risk
+
+### `max_total_exposure_pct`
+
+Maximum portfolio exposure relative to account equity.
+
+### `max_concurrent_positions`
+
+Maximum number of simultaneous markets with active exposure.
+
+### `daily_drawdown_stop_pct`
+
+Stops new risk-taking when daily closed PnL breaches the configured loss limit.
+
+### `min_risk_pct` / `max_risk_pct`
+
+Risk band used by dynamic sizing. Stronger setups can size closer to `max_risk_pct`.
+
+### `max_spread_bps`
+
+Markets wider than this are rejected for signal generation and execution.
+
+### `execution_cooldown_seconds`
+
+Prevents repeated submissions on the same symbol every refresh cycle.
+
+### `use_real_trade_stream`
+
+Uses Hyperliquid real-time `trades` WebSocket feed to maintain live CVD and flow imbalance.
+
+### `use_external_sentiment`
+
+Uses external long/short ratio data instead of synthetic positioning proxies.
+
+### `min_liquidity_score`
+
+Rejects weaker markets even if they technically enter the top-N universe.
+
+### `min_signal_strength`
+
+Minimum score required before a candidate becomes tradable.
+
+### `aggressive_signal_strength`
+
+Signals above this threshold can receive larger dynamic risk allocation.
+
+### `require_trend_alignment`
+
+Keeps continuation entries aligned with MA structure and momentum filters.
+
+### `require_cross_exchange_alignment`
+
+Requires stronger agreement across Hyperliquid, Binance, and Bybit funding context.
+
+---
+
+## Telegram Notifications
+
+Dashboard settings support:
+
+- bot token
+- chat id
+- enable or disable notifications
+- summary interval
+- per-category toggles
+
+The bot can send:
+
+- API online status
+- migration status
+- settings updates
+- cancel-all / flatten-all actions
+- trade submission results
+- blocked or cooldown events
+- positions / open orders / exposure summary
+- daily PnL summary
+- runtime errors
+
+---
+
+## Trading Logic
+
+The engine analyzes the **top 50 Hyperliquid markets by liquidity and volume**.
+
+Signal inputs:
+
+- current funding rate
+- predicted funding rate
+- rate persistence
+- funding momentum
+- microstructure momentum
+- OI absolute level
+- OI delta
+- real CVD from Hyperliquid trades
+- live long/short ratio feed
+- cross-exchange funding alignment
+- ATR
+- MA structure
+
+Entry logic emphasizes higher win-rate filtering by requiring stronger agreement across:
+
+- funding regime
+- crowd positioning
+- OI expansion or unwind
+- real order-flow confirmation
+- spread and liquidity quality
+- trend alignment
+
+The result is fewer trades than a loose funding bot, but generally cleaner continuation and unwind setups.
+
+---
+
+## Notes
+
+- Default universe is **50** markets.
+- Dashboard no longer uses `Pause Engine`.
+- Runtime is controlled through settings, `shadow_mode`, and kill switches.
+- Healthchecks, startup migrations, and seeded runtime settings are already included in Docker.
+
+---
+
+## Bahasa Indonesia
+
+## Mulai Cepat
+
+### Jalankan full via Docker
 
 ```bash
 docker compose up --build
 ```
 
-The compose file now works without a `.env` file. Runtime defaults are used unless you provide settings from the dashboard or container environment.
+Buka:
 
-### Production Docker Mode
+- Dashboard: `http://localhost:8501`
+- API: `http://localhost:8000`
 
-For Codespaces or VPS deployment:
+Mode production-like:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-What this adds:
+## Fitur Web App
 
-- healthchecks for API, dashboard, Redis, and Postgres
-- automatic migration run during API startup
-- persistent runtime settings and OI history under `./runtime`
-- production-oriented published port for the dashboard via `APP_PORT`
-- internal-only API/Redis/Postgres in the production override
+- papan sinyal live
+- posisi live, open order, dan fill terbaru
+- tombol `Cancel all` dan `Flatten all`
+- mode `shadow` dan `reduce-only`
+- support akun Hyperliquid `mainnet` dan `testnet`
+- notifikasi Telegram
+- dashboard dua bahasa: Inggris dan Indonesia
 
-Codespaces tip:
+## Penjelasan Pengaturan Penting
 
-- forward the dashboard port from the active compose mode
-- if using the base compose, use port `8501`
-- if using production override, use port `80` or your configured `APP_PORT`
+### `shadow_mode`
 
-## Safety Defaults
+Bot tetap analisa, hitung sizing, dan siapkan order, tapi **tidak** mengirim order live.
 
-- Maximum exposure: 30% of equity.
-- Maximum concurrent positions: 6.
-- Daily drawdown stop: 3%.
-- Risk per trade: 0.25% to 0.75% of equity.
-- Adaptive limit entries reject high-spread markets.
+### `reduce_only_mode`
 
-Run shadow mode and tiny sizing before connecting live execution.
+Semua order live hanya boleh mengurangi posisi yang sudah ada, tidak boleh menambah posisi baru.
+
+### `max_total_exposure_pct`
+
+Batas total eksposur terhadap equity akun.
+
+### `daily_drawdown_stop_pct`
+
+Jika rugi harian melewati batas ini, engine berhenti mengambil risiko baru.
+
+### `use_real_trade_stream`
+
+Menggunakan trade stream Hyperliquid real-time untuk menghitung CVD.
+
+### `use_external_sentiment`
+
+Menggunakan data rasio long/short eksternal yang live, bukan proxy sintetis.
+
+### `min_signal_strength`
+
+Sinyal di bawah ambang ini tidak akan dieksekusi.
+
+## Telegram
+
+Bot Telegram bisa mengirim:
+
+- status API
+- error runtime
+- aktivitas trading
+- hasil eksekusi
+- ringkasan exposure dan PnL
+
+## Catatan
+
+- Universe default sekarang **top 50 pair**
+- Fitur `Pause Engine` sudah dihapus
+- Kontrol operasional utama sekarang: `shadow_mode`, `reduce_only_mode`, `Cancel all`, dan `Flatten all`

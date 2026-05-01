@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from trading_system.app.user_settings import HyperliquidCredentials
+from trading_system.data.networks import apply_network_defaults
 
 
 class HyperliquidExchangeLike(Protocol):
@@ -10,6 +11,9 @@ class HyperliquidExchangeLike(Protocol):
         ...
 
     def cancel(self, name: str, oid: int) -> dict:
+        ...
+
+    def market_close(self, coin: str) -> dict:
         ...
 
 
@@ -52,5 +56,6 @@ def build_exchange_client(credentials: HyperliquidCredentials) -> HyperliquidExc
     except ImportError:
         return None
 
-    wallet = Account.from_key(credentials.secret_key)
-    return Exchange(wallet, credentials.api_url, account_address=credentials.account_address or None)
+    resolved = apply_network_defaults(credentials)
+    wallet = Account.from_key(resolved.secret_key)
+    return Exchange(wallet, resolved.api_url, account_address=resolved.account_address or None)

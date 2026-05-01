@@ -24,13 +24,15 @@ def positioning_pressure(features: MarketFeatures) -> float:
     crowd_skew = (features.long_short_ratio - 0.5) * 2.0
     oi_expansion = tanh(features.oi_delta * 5.0)
     oi_extreme = tanh(features.oi_zscore / 2.5)
-    return clamp(0.40 * crowd_skew + 0.35 * oi_expansion + 0.25 * oi_extreme)
+    flow_skew = (features.flow_imbalance - 0.5) * 2.0
+    return clamp(0.35 * crowd_skew + 0.30 * oi_expansion + 0.20 * oi_extreme + 0.15 * flow_skew)
 
 
 def orderflow_pressure(features: MarketFeatures) -> float:
     flow_delta = tanh(features.cvd_delta / max(abs(features.cvd), 1.0))
     flow_level = tanh(features.cvd / 10_000_000.0)
-    return clamp(0.65 * flow_delta + 0.35 * flow_level)
+    freshness_multiplier = 1.0 if features.trade_stream_fresh else 0.7
+    return clamp((0.55 * flow_delta + 0.25 * flow_level + 0.20 * ((features.flow_imbalance - 0.5) * 2.0)) * freshness_multiplier)
 
 
 def cross_exchange_alignment(features: MarketFeatures) -> float:
@@ -71,6 +73,7 @@ def conviction_score(features: MarketFeatures) -> float:
         + 0.16 * abs(cross_exchange_alignment(features))
         + 0.12 * abs(trend_filter(features))
     )
-    liquidity_bonus = min(features.liquidity_score, 1.0) * 0.05
-    spread_penalty = min(features.spread_bps / 10.0, 0.20)
-    return clamp(raw + liquidity_bonus - spread_penalty, 0.0, 1.0)
+    liquidity_bonus = min(features.liquidity_score, 1.0) * 0.07
+    spread_penalty = min(features.spread_bps / 8.0, 0.22)
+    freshness_bonus = 0.04 if features.trade_stream_fresh else -0.03
+    return clamp(raw + liquidity_bonus + freshness_bonus - spread_penalty, 0.0, 1.0)

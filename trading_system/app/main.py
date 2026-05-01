@@ -48,6 +48,7 @@ async def health() -> dict[str, object]:
         "env": settings.env,
         "migration_ok": runtime.snapshot.migration_ok,
         "migration_error": runtime.snapshot.migration_error,
+        "last_error": runtime.snapshot.last_error,
     }
 
 
@@ -57,7 +58,6 @@ async def root() -> dict[str, object]:
     return {
         "service": "Hyperliquid Funding Arbitrage Engine",
         "status": "ok",
-        "paused": runtime.snapshot.paused,
         "last_error": runtime.snapshot.last_error,
         "migration_ok": runtime.snapshot.migration_ok,
         "migration_error": runtime.snapshot.migration_error,
@@ -66,36 +66,23 @@ async def root() -> dict[str, object]:
             "overview": "/dashboard/overview",
             "settings": "/settings",
             "telegram_test": "/settings/telegram/test",
+            "cancel_all": "/engine/cancel-all",
+            "flatten_all": "/engine/flatten-all",
         },
     }
 
 
 @app.get("/risk")
-async def risk_state() -> dict[str, float | int | bool]:
+async def risk_state() -> dict[str, float | int | bool | str]:
     runtime: TradingRuntime = app.state.runtime
     return {
-        "daily_drawdown_stop": False,
         "max_exposure_pct": runtime.user_settings.trading.max_total_exposure_pct,
         "max_positions": runtime.user_settings.trading.max_concurrent_positions,
         "daily_drawdown_stop_pct": runtime.user_settings.trading.daily_drawdown_stop_pct,
-        "paused": runtime.snapshot.paused,
+        "shadow_mode": runtime.user_settings.trading.shadow_mode,
+        "reduce_only_mode": runtime.user_settings.trading.reduce_only_mode,
+        "network": runtime.user_settings.hyperliquid.network,
     }
-
-
-@app.post("/engine/pause")
-async def pause_engine() -> dict[str, bool]:
-    runtime: TradingRuntime = app.state.runtime
-    runtime.snapshot.paused = True
-    await runtime.notify_engine_action("paused")
-    return {"paused": True}
-
-
-@app.post("/engine/resume")
-async def resume_engine() -> dict[str, bool]:
-    runtime: TradingRuntime = app.state.runtime
-    runtime.snapshot.paused = False
-    await runtime.notify_engine_action("resumed")
-    return {"paused": False}
 
 
 @app.post("/engine/refresh")
@@ -109,11 +96,26 @@ async def refresh_engine() -> dict[str, object]:
     }
 
 
+@app.post("/engine/cancel-all")
+async def cancel_all_orders() -> dict[str, object]:
+    runtime: TradingRuntime = app.state.runtime
+    result = await runtime.cancel_all_orders()
+    await runtime.refresh()
+    return result
+
+
+@app.post("/engine/flatten-all")
+async def flatten_all_positions() -> dict[str, object]:
+    runtime: TradingRuntime = app.state.runtime
+    result = await runtime.flatten_all_positions()
+    await runtime.refresh()
+    return result
+
+
 @app.get("/dashboard/overview")
 async def dashboard_overview() -> dict[str, object]:
     runtime: TradingRuntime = app.state.runtime
     return {
-        "paused": runtime.snapshot.paused,
         "last_error": runtime.snapshot.last_error,
         "generated_at": runtime.snapshot.generated_at,
         "migration_ok": runtime.snapshot.migration_ok,
@@ -122,6 +124,10 @@ async def dashboard_overview() -> dict[str, object]:
         "universe": runtime.snapshot.universe,
         "signals": runtime.snapshot.signals,
         "orders": runtime.snapshot.orders,
+        "positions": runtime.snapshot.positions,
+        "open_orders": runtime.snapshot.open_orders,
+        "fills": runtime.snapshot.fills,
+        "activity": runtime.snapshot.activity,
         "settings": runtime.settings_store.public_payload(),
     }
 

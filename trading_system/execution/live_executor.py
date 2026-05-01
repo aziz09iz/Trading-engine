@@ -6,6 +6,8 @@ from time import time
 from uuid import uuid4
 
 from trading_system.app.user_settings import HyperliquidCredentials, TradingParameters
+from trading_system.data.account_state import LiveOrder, LivePosition
+from trading_system.data.networks import apply_network_defaults
 from trading_system.execution.hyperliquid_client import HyperliquidExecutionClient, OrderRequest, build_exchange_client
 from trading_system.signals.models import MarketFeatures, TradeSignal
 
@@ -38,6 +40,10 @@ class LiveExecutionService:
     def __init__(self) -> None:
         self._last_submitted_at: dict[str, float] = {}
 
+    def _exchange_client(self, credentials: HyperliquidCredentials):
+        resolved = apply_network_defaults(credentials)
+        return build_exchange_client(resolved)
+
     def can_submit(self, symbol: str, cooldown_seconds: int) -> bool:
         last = self._last_submitted_at.get(symbol, 0.0)
         return (time() - last) >= cooldown_seconds
@@ -57,7 +63,7 @@ class LiveExecutionService:
         if not self.can_submit(signal.symbol, trading.execution_cooldown_seconds):
             return ExecutionResult(symbol=signal.symbol, status="cooldown", message="submission cooldown active")
 
-        exchange = build_exchange_client(credentials)
+        exchange = self._exchange_client(credentials)
         if exchange is None:
             return ExecutionResult(symbol=signal.symbol, status="blocked", message="SDK not available")
 
@@ -84,4 +90,53 @@ class LiveExecutionService:
             status="submitted",
             message="order submitted to Hyperliquid",
             response=response if isinstance(response, dict) else {"raw": response},
+        )
+
+    async def cancel_all(
+        self,
+        credentials: HyperliquidCredentials,
+        open_orders: list[LiveOrder],
+    ) -> ExecutionResult:
+        if not credentials.account_address or not credentials.secret_key:
+            return ExecutionResult(symbol="*", status="blocked", message="missing Hyperliquid credentials")
+
+        exchange = self._exchange_client(credentials)
+        if exchange is None:
+            return ExecutionResult(symbol="*", status="blocked", message="SDK not available")
+
+        client = HyperliquidExecutionClient(exchange)
+        responses: list[dict[str, object]] = []
+        for order in open_orders:
+            responses.append(await client.cancel(order.symbol, order.oid))
+        return ExecutionResult(
+            symbol="*",
+            status="submitted",
+            message=f"cancelled {len(open_orders)} open orders",
+            response={"orders": responses},
+        )
+
+    async def flatten_all(
+        self,
+        credentials: HyperliquidCredentials,
+        positions: list[LivePosition],
+    ) -> ExecutionResult:
+        if not credentials.account_address or not credentials.secret_key:
+            return ExecutionResult(symbol="*", status="blocked", message="missing Hyperliquid credentials")
+
+        exchange = self._exchange_client(credentials)
+        if exchange is None:
+            return ExecutionResult(symbol="*", status="blocked", message="SDK not available")
+
+        responses: list[dict[str, object]] = []
+        for position in positions:
+            try:
+                response = exchange.market_close(position.symbol)
+            except Exception as exc:  # pragma: no cover
+                response = {"error": str(exc), "symbol": position.symbol}
+            responses.append(response if isinstance(response, dict) else {"raw": response, "symbol": position.symbol})
+        return ExecutionResult(
+            symbol="*",
+            status="submitted",
+            message=f"flatten requested for {len(positions)} positions",
+            response={"positions": responses},
         )

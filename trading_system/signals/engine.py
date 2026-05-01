@@ -31,7 +31,7 @@ def continuation_signal(features: MarketFeatures) -> TradeSignal | None:
     alignment_score = cross_exchange_alignment(features)
     trend_score = trend_filter(features)
 
-    if strength < 0.70 or features.spread_bps > 5:
+    if strength < 0.78 or features.spread_bps > 4.5:
         return None
 
     long_ok = (
@@ -41,9 +41,12 @@ def continuation_signal(features: MarketFeatures) -> TradeSignal | None:
         and features.oi_delta > 0
         and features.oi_zscore > 0
         and features.cvd_delta > 0
-        and features.long_short_ratio > 0.55
+        and features.flow_imbalance > 0.53
+        and features.long_short_ratio > 0.54
         and features.funding_persistence >= 3
         and features.ma_fast >= features.ma_slow
+        and features.trade_stream_fresh
+        and features.liquidity_score >= 0.15
     )
     short_ok = (
         score < 0
@@ -52,9 +55,12 @@ def continuation_signal(features: MarketFeatures) -> TradeSignal | None:
         and features.oi_delta < 0
         and features.oi_zscore < 0
         and features.cvd_delta < 0
-        and features.long_short_ratio < 0.45
+        and features.flow_imbalance < 0.47
+        and features.long_short_ratio < 0.46
         and features.funding_persistence >= 3
         and features.ma_fast <= features.ma_slow
+        and features.trade_stream_fresh
+        and features.liquidity_score >= 0.15
     )
 
     if long_ok:
@@ -69,7 +75,7 @@ def continuation_signal(features: MarketFeatures) -> TradeSignal | None:
             alignment_score=alignment_score,
             trend_score=trend_score,
             suggested_risk_pct=_risk_pct(strength, features.liquidity_score),
-            reason="positive funding regime strengthening with rising OI, positive CVD, long crowd expansion, and MA trend support",
+            reason="positive funding regime strengthening with rising OI, real buy-side CVD, crowd expansion, and aligned trend support",
             invalidation_price=features.mid_price - 1.5 * features.atr,
             take_profit_prices=_tp_prices("long", features.mid_price, features.atr),
         )
@@ -86,7 +92,7 @@ def continuation_signal(features: MarketFeatures) -> TradeSignal | None:
             alignment_score=alignment_score,
             trend_score=trend_score,
             suggested_risk_pct=_risk_pct(strength, features.liquidity_score),
-            reason="negative funding regime strengthening with rising short crowd pressure, negative CVD, and MA trend support",
+            reason="negative funding regime strengthening with rising short crowd pressure, real sell-side CVD, and aligned trend support",
             invalidation_price=features.mid_price + 1.5 * features.atr,
             take_profit_prices=_tp_prices("short", features.mid_price, features.atr),
         )
@@ -96,7 +102,7 @@ def continuation_signal(features: MarketFeatures) -> TradeSignal | None:
 
 def mean_reversion_signal(features: MarketFeatures) -> TradeSignal | None:
     extreme_funding = abs(features.current_funding_1h) > 0.00025
-    skewed_positioning = features.long_short_ratio > 0.70 or features.long_short_ratio < 0.30
+    skewed_positioning = features.long_short_ratio > 0.72 or features.long_short_ratio < 0.28
     oi_weakening = (
         features.current_funding_1h > 0 and features.oi_delta <= 0
     ) or (
@@ -114,10 +120,10 @@ def mean_reversion_signal(features: MarketFeatures) -> TradeSignal | None:
     trend_score = trend_filter(features)
     strength = max(0.70, conviction_score(features) - 0.05)
 
-    if not all([extreme_funding, skewed_positioning, oi_weakening, cvd_divergence]):
+    if not all([extreme_funding, skewed_positioning, oi_weakening, cvd_divergence, features.trade_stream_fresh]):
         return None
 
-    if features.spread_bps > 5:
+    if features.spread_bps > 4.5 or strength < 0.76:
         return None
 
     if features.current_funding_1h > 0 and features.long_short_ratio > 0.75:
@@ -132,7 +138,7 @@ def mean_reversion_signal(features: MarketFeatures) -> TradeSignal | None:
             alignment_score=alignment_score,
             trend_score=trend_score,
             suggested_risk_pct=max(0.0025, _risk_pct(strength, features.liquidity_score) - 0.0010),
-            reason="positive funding extreme with crowded longs, stalling OI growth, and bearish CVD divergence",
+            reason="positive funding extreme with crowded longs, stalling OI growth, and bearish real-flow divergence",
             invalidation_price=features.mid_price + 1.5 * features.atr,
             take_profit_prices=_tp_prices("short", features.mid_price, features.atr),
         )
@@ -149,7 +155,7 @@ def mean_reversion_signal(features: MarketFeatures) -> TradeSignal | None:
             alignment_score=alignment_score,
             trend_score=trend_score,
             suggested_risk_pct=max(0.0025, _risk_pct(strength, features.liquidity_score) - 0.0010),
-            reason="negative funding extreme with crowded shorts, stalling OI growth, and bullish CVD divergence",
+            reason="negative funding extreme with crowded shorts, stalling OI growth, and bullish real-flow divergence",
             invalidation_price=features.mid_price - 1.5 * features.atr,
             take_profit_prices=_tp_prices("long", features.mid_price, features.atr),
         )

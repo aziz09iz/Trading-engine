@@ -28,6 +28,8 @@ def test_generates_continuation_long_signal() -> None:
         ma_fast=100_500,
         ma_slow=99_700,
         timestamp_ms=1,
+        flow_imbalance=0.62,
+        trade_stream_fresh=True,
     )
 
     signal = generate_signal(features)
@@ -65,6 +67,8 @@ def test_generates_mean_reversion_short_signal() -> None:
         ma_fast=3_180,
         ma_slow=3_240,
         timestamp_ms=1,
+        flow_imbalance=0.38,
+        trade_stream_fresh=True,
     )
 
     signal = generate_signal(features)
@@ -100,6 +104,8 @@ def test_rejects_high_spread() -> None:
         ma_fast=100_500,
         ma_slow=99_700,
         timestamp_ms=1,
+        flow_imbalance=0.62,
+        trade_stream_fresh=True,
     )
 
     assert generate_signal(features) is None

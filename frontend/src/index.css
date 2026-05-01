@@ -14,11 +14,18 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #11100e;
+  background:
+    radial-gradient(circle at top, rgba(34, 211, 238, 0.08), transparent 24%),
+    linear-gradient(180deg, #020617 0%, #020617 100%);
+  color: #e2e8f0;
 }
 
 button,
 input,
 select {
   font: inherit;
+}
+
+* {
+  box-sizing: border-box;
 }
