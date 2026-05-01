@@ -23,6 +23,11 @@ const copy = {
     sendTelegramTest: "Send Telegram test",
     sending: "Sending",
     refreshNow: "Refresh now",
+    nav: {
+      dashboard: "Dashboard",
+      pairs: "Pairs",
+      settings: "Settings",
+    },
     metrics: {
       equity: "Equity",
       exposure: "Exposure",
@@ -101,12 +106,17 @@ const copy = {
       direction: "Direction",
       status: "Status",
       time: "Time",
+      rank: "Rank",
+      volume24h: "24h Volume",
+      openInterest: "Open Interest",
+      spread: "Spread",
     },
     emptySignals: "No qualified trades right now. The engine is watching the live top-liquidity universe.",
     emptyPositions: "No live positions found for this account.",
     emptyOrders: "No open orders found for this account.",
     emptyFills: "No recent fills found for this account.",
     emptyActivity: "No runtime activity yet.",
+    emptyUniverse: "No live pairs loaded yet.",
     shadowExplained: "Simulate entries without sending live orders.",
     reduceExplained: "Allow only orders that reduce existing exposure.",
     runtimeStatus: "Runtime status",
@@ -133,6 +143,11 @@ const copy = {
     sendTelegramTest: "Kirim tes Telegram",
     sending: "Mengirim",
     refreshNow: "Refresh sekarang",
+    nav: {
+      dashboard: "Dashboard",
+      pairs: "Pairs",
+      settings: "Pengaturan",
+    },
     metrics: {
       equity: "Equity",
       exposure: "Eksposur",
@@ -211,12 +226,17 @@ const copy = {
       direction: "Arah",
       status: "Status",
       time: "Waktu",
+      rank: "Rank",
+      volume24h: "Volume 24j",
+      openInterest: "Open Interest",
+      spread: "Spread",
     },
     emptySignals: "Belum ada trade yang lolos filter. Engine tetap memantau universe live paling liquid.",
     emptyPositions: "Tidak ada posisi live untuk akun ini.",
     emptyOrders: "Tidak ada open order untuk akun ini.",
     emptyFills: "Belum ada fill terbaru untuk akun ini.",
     emptyActivity: "Belum ada aktivitas runtime.",
+    emptyUniverse: "Pair live belum dimuat.",
     shadowExplained: "Simulasikan entry tanpa mengirim order live.",
     reduceExplained: "Hanya izinkan order yang mengurangi eksposur.",
     runtimeStatus: "Status runtime",
@@ -350,6 +370,21 @@ function StatusChip({ label, tone = "slate" }) {
   return <span className={classNames("rounded-full border px-3 py-1 text-xs font-medium", tones[tone])}>{label}</span>;
 }
 
+function MenuButton({ active, children, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={classNames(
+        "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        active ? "bg-cyan-300 text-slate-950" : "text-slate-300 hover:bg-white/10 hover:text-white",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 function StrengthCell({ value }) {
   const pct = Math.round(Number(value ?? 0) * 100);
   const tone = pct >= 90 ? "bg-emerald-300" : pct >= 78 ? "bg-cyan-300" : "bg-slate-500";
@@ -368,6 +403,7 @@ function TableWrap({ children }) {
 }
 
 function App() {
+  const [activeMenu, setActiveMenu] = useState("dashboard");
   const [health, setHealth] = useState("checking");
   const [settingsPending, setSettingsPending] = useState(false);
   const [telegramTestPending, setTelegramTestPending] = useState(false);
@@ -601,10 +637,23 @@ function App() {
               </button>
             </div>
           </div>
+          <nav className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-4">
+            <MenuButton active={activeMenu === "dashboard"} onClick={() => setActiveMenu("dashboard")}>
+              {t.nav.dashboard}
+            </MenuButton>
+            <MenuButton active={activeMenu === "pairs"} onClick={() => setActiveMenu("pairs")}>
+              {t.nav.pairs} ({overview.universe.length || settingsDraft.trading.top_n_markets || 50})
+            </MenuButton>
+            <MenuButton active={activeMenu === "settings"} onClick={() => setActiveMenu("settings")}>
+              {t.nav.settings}
+            </MenuButton>
+          </nav>
         </div>
       </div>
 
       <div className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-12">
+        {activeMenu === "dashboard" ? (
+          <>
         <section className="grid gap-4 lg:col-span-12 lg:grid-cols-6">
           <MetricCard label={t.metrics.equity} value={formatUsd(overview.metrics.equity_usd)} detail={t.liveAccount} accent="cyan" />
           <MetricCard label={t.metrics.exposure} value={formatUsd(exposureUsd)} detail={formatPct(overview.metrics.current_exposure_pct)} accent="amber" />
@@ -846,7 +895,10 @@ function App() {
             )}
           </div>
         </Panel>
+          </>
+        ) : null}
 
+        {activeMenu === "settings" ? (
         <Panel
           title={t.sections.settings}
           className="lg:col-span-12"
@@ -981,32 +1033,44 @@ function App() {
             </div>
           </div>
         </Panel>
+        ) : null}
 
-        <Panel title={t.sections.universe} className="lg:col-span-12">
-          <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
-            {overview.universe.map((row) => (
-              <div key={row.symbol} className="rounded-2xl border border-white/10 bg-slate-950 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-white">{row.symbol}</p>
-                    <p className="text-sm text-slate-500">{t.topUniverse}</p>
-                  </div>
-                  <StatusChip label={`${Number(row.spread_bps ?? 0).toFixed(2)} bps`} tone="slate" />
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-slate-500">24h volume</p>
-                    <p className="mt-1 font-mono text-slate-200">{formatUsd(row.volume_24h)}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Open interest</p>
-                    <p className="mt-1 font-mono text-slate-200">{formatUsd(row.open_interest_usd)}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+        {activeMenu === "pairs" ? (
+        <Panel title={t.sections.universe} description={t.topUniverse} className="lg:col-span-12">
+          <TableWrap>
+            <table className="min-w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                <tr>
+                  {[t.table.rank, t.table.symbol, t.table.volume24h, t.table.openInterest, t.table.spread].map((head) => (
+                    <th className="px-4 py-3 font-medium" key={head}>
+                      {head}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {overview.universe.length ? (
+                  overview.universe.map((row, index) => (
+                    <tr key={row.symbol} className="hover:bg-white/[0.03]">
+                      <td className="px-4 py-4 font-mono text-slate-400">#{index + 1}</td>
+                      <td className="px-4 py-4 font-semibold text-white">{row.symbol}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatUsd(row.volume_24h)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{formatUsd(row.open_interest_usd)}</td>
+                      <td className="px-4 py-4 font-mono text-slate-300">{Number(row.spread_bps ?? 0).toFixed(2)} bps</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="px-4 py-6 text-sm text-slate-500" colSpan={5}>
+                      {t.emptyUniverse}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableWrap>
         </Panel>
+        ) : null}
       </div>
     </main>
   );
